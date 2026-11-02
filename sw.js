@@ -1,7 +1,8 @@
 // Ma Déco Pro — fonctionnement hors ligne.
-// L'appli est servie depuis la mémoire du téléphone/PC, puis mise à jour en arrière-plan
-// (une nouvelle version mise en ligne s'applique au lancement suivant).
-const CACHE = 'ma-deco-pro-v1';
+// Avec du réseau : la dernière version en ligne est chargée (et gardée en mémoire).
+// Sans réseau (ou réseau trop lent) : la version gardée en mémoire est utilisée.
+const CACHE = 'ma-deco-pro-v2';
+const TIMEOUT = 3500;
 const FILES = ['./', './index.html', './config.js', './manifest.webmanifest',
   './icon-192.png', './icon-512.png', './icon-maskable-512.png', './apple-touch-icon.png'];
 
@@ -23,10 +24,15 @@ self.addEventListener('fetch', e => {
   const key = req.mode === 'navigate' ? './index.html' : req;
   e.respondWith(caches.open(CACHE).then(async cache => {
     const cached = await cache.match(key, { ignoreSearch: true });
-    const fresh = fetch(req).then(res => {
+    const fresh = fetch(req, { cache: 'no-cache' }).then(res => {
       if (res && res.ok) cache.put(key, res.clone());
       return res;
-    }).catch(() => cached);
-    return cached || fresh;
+    });
+    if (!cached) return fresh;
+    // réseau d'abord ; si pas de réponse rapide, la copie en mémoire
+    return Promise.race([
+      fresh.catch(() => cached),
+      new Promise(r => setTimeout(() => r(cached), TIMEOUT))
+    ]);
   }));
 });
