@@ -1549,6 +1549,62 @@ function openWelcome(){openModal(`<h2>👋 Bienvenue !</h2><p>Votre espace en li
  <div class="row"><label class="btn pri" style="margin:0">⬆️ Importer ma sauvegarde<input type="file" accept=".json,application/json" data-chg="importBackup" hidden></label><button data-act="closeModal">Commencer sans sauvegarde</button></div>
  <p class="muted"><small>Vous pourrez aussi le faire plus tard dans Réglages › Restaurer une sauvegarde.</small></p>`)}
 
+/* ================= Ergonomie (v8) : menu « Plus », accès rapides, premiers pas, sections repliables ================= */
+const UXN=4; // nombre de sections dans la barre du bas sur téléphone (la suite va dans « Plus »)
+const uxMobile=()=>window.innerWidth<900;
+{const _rn=renderNav;renderNav=function(){if(!uxMobile()){_rn();return}
+ const o=navOrder(),main=o.slice(0,UXN),rest=o.slice(UXN);
+ const h=main.map(v=>{const n=NAV.find(x=>x[0]===v);return `<button data-go="${n[0]}" data-view="${n[0]}"><span>${n[1]}</span>${n[2]}</button>`}).join('')+(rest.length?`<button data-act="navPlus" data-view="__plus" aria-label="Plus de sections"><span>☰</span>Plus</button>`:'');
+ const el=$('#nav');if(el.dataset.h!==h){el.innerHTML=h;el.dataset.h=h}}}
+ACT.navPlus=()=>{const o=navOrder().slice(UXN),map={doc:'docs',editor:'docs',client:'cli',pack:'cat'},cur=map[VIEW]||VIEW;
+ openModal(`<div class="row between"><h2 style="margin:0">Toutes les sections</h2><button class="sm" data-act="closeModal">Fermer</button></div>
+ <div class="uxplus">${o.map(v=>{const n=NAV.find(x=>x[0]===v);return `<button data-go="${n[0]}" class="${n[0]===cur?'on':''}"><span>${n[1]}</span>${n[2]}</button>`}).join('')}</div>
+ <p class="muted" style="margin:10px 0 0"><small>Vous pouvez choisir les sections affichées dans la barre du bas : Réglages › Ordre du menu (les ${UXN} premières).</small></p>`)};
+addEventListener('resize',()=>{const m=uxMobile();if(m!==window._uxM){window._uxM=m;render()}});window._uxM=uxMobile();
+/* --- tableau de bord : accès rapides et premiers pas --- */
+function uxSteps(){const s=S.settings;return[
+ {k:'infos',t:'Mes informations d’entreprise',d:'Nom, n° d’entreprise (BCE) et IBAN : ils apparaissent sur vos factures.',ok:!!(s.nom&&s.bce&&s.iban),b:'<button class="sm pri" data-go="set">Compléter</button>'},
+ {k:'cat',t:'Mon catalogue',d:'Ajoutez vos articles (ballons, arches…) ou un ticket d’achat : ils servent à faire vos devis.',ok:S.catalog.length>0,b:'<button class="sm pri" data-act="newArticle">+ Article</button> <button class="sm" data-act="newExp">📷 Ticket</button>'},
+ {k:'cli',t:'Mon premier client',d:'Ses coordonnées seront reprises sur ses devis et factures.',ok:S.clients.length>0,b:'<button class="sm pri" data-act="newClient">+ Client</button>'},
+ {k:'devis',t:'Mon premier devis',d:'Choisissez le client et les articles : le total se calcule tout seul.',ok:S.docs.some(d=>d.type==='devis'),b:'<button class="sm pri" data-act="newDoc" data-t="devis">+ Devis</button>'}]}
+function uxStart(){let hid=false;try{hid=localStorage.getItem('mdp.onb')==='off'}catch(e){}const L=uxSteps(),n=L.filter(x=>x.ok).length;if(hid||n===L.length)return'';
+ return `<div class="card uxstart"><div class="row between"><h3 style="margin:0">🚀 Premiers pas · ${n}/${L.length}</h3><button class="sm" data-act="uxHideStart">Masquer</button></div>
+ <div class="uxbar"><i style="width:${n/L.length*100}%"></i></div>
+ ${L.map((x,i)=>`<div class="uxstep${x.ok?' ok':''}"><span class="uxn">${x.ok?'✓':i+1}</span><div class="grow"><b>${x.t}</b>${x.ok?'':`<small>${x.d}</small><div class="row" style="margin-top:6px">${x.b}</div>`}</div></div>`).join('')}</div>`}
+ACT.uxHideStart=()=>{try{localStorage.setItem('mdp.onb','off')}catch(e){}rerenderKeepScroll();toast('Vous retrouverez l’aide dans Réglages')};
+ACT.uxShowStart=()=>{try{localStorage.removeItem('mdp.onb')}catch(e){}go('dash')};
+const uxQuick=()=>`<div class="uxq">
+ <button data-act="newDoc" data-t="devis"><span>📝</span>Nouveau devis</button>
+ <button data-act="newDoc" data-t="facture"><span>🧾</span>Nouvelle facture</button>
+ <button data-act="newExp"><span>📷</span>Ajouter un ticket</button>
+ <button data-act="newClient"><span>👤</span>Nouveau client</button></div>`;
+{const _d=vDash;vDash=function(){const h=_d();return h.replace(/(<h2[^>]*>Tableau de bord<\/h2>[\s\S]*?<\/div>)/,m=>m+uxQuick()+uxStart())}}
+/* --- écrans vides : un bouton pour commencer --- */
+{const _v=vDocs;vDocs=function(){return _v().replace(empty('Aucun document ici.'),empty('Aucun document ici.','<button class="pri" data-act="newDoc" data-t="devis">📝 Faire un devis</button> <button data-act="newDoc" data-t="facture">🧾 Faire une facture</button>'))}}
+{const _v=vCli;vCli=function(){return _v().replace(empty('Aucun client pour le moment.'),empty('Aucun client pour le moment.','<button class="pri" data-act="newClient">👤 Ajouter mon premier client</button>'))}}
+/* --- Réglages et Échéances : sections repliables (une seule ouverte à la fois) --- */
+const UXO={set:null,agenda:null};
+const UXOPEN={agenda:['⚠️','📌']};
+function uxFold(){const v=VIEW;if(v!=='set'&&v!=='agenda')return;const hd=c=>{const f=c.firstElementChild;if(!f)return null;if(f.tagName==='H3')return f;if(f.classList.contains('row')&&f.querySelector(':scope > h3'))return f;return null};
+ const cards=[...document.querySelectorAll('#app > .card, #app > form > .card')].filter(hd);if(cards.length<3)return;
+ cards.forEach((c,i)=>{const h=hd(c),key=(h.tagName==='H3'?h:h.querySelector('h3')).textContent.trim();const d=document.createElement('details');d.className=c.className+' uxf';d.dataset.k=key;
+  const def=v==='agenda'?(UXOPEN.agenda.some(p=>key.startsWith(p))):i===0;d.open=UXO[v]===null?def:(UXO[v]===key||(v==='agenda'&&UXO.agenda==='*'&&def));
+  const sm=document.createElement('summary');sm.appendChild(h);sm.insertAdjacentHTML('beforeend','<span class="uxchev">›</span>');d.appendChild(sm);while(c.firstChild)d.appendChild(c.firstChild);c.replaceWith(d)})}
+document.addEventListener('toggle',e=>{const d=e.target;if(!d.classList||!d.classList.contains('uxf'))return;if(d.open){if(VIEW==='set')document.querySelectorAll('#app details.uxf[open]').forEach(x=>{if(x!==d)x.open=false});UXO[VIEW]=d.dataset.k;setTimeout(()=>{const r=d.getBoundingClientRect();if(r.top<60||r.top>innerHeight-120)window.scrollTo({top:window.scrollY+r.top-70,behavior:'smooth'})},0)}},true);
+{const _r=render;render=function(){_r();try{uxFold()}catch(e){console.warn(e)}
+ const map={doc:'docs',editor:'docs',client:'cli',pack:'cat'},cur=map[VIEW]||VIEW,p=document.querySelector('#nav [data-view="__plus"]');if(p)p.classList.toggle('on',!navOrder().slice(0,UXN).includes(cur)&&uxMobile())}}
+{const _g=go;go=function(v,p){if(v!==VIEW&&(v==='set'||v==='agenda'))UXO[v]=null;_g(v,p)}}
+/* aide « Premiers pas » à nouveau accessible depuis les Réglages */
+{const _s=vSet;vSet=function(){return _s().replace(/(<h2[^>]*>Réglages<\/h2>)/,'$1<div class="row" style="margin:-4px 0 12px"><button class="sm" data-act="uxShowStart">🚀 Revoir les premiers pas</button></div>')}}
+{const st=document.createElement('style');st.textContent=`
+.uxq{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:0 0 14px}.uxq button{display:flex;flex-direction:column;align-items:center;gap:4px;padding:12px 4px;border-radius:var(--radius);border:1px solid var(--line);background:var(--card);font-size:12.5px;font-weight:600;line-height:1.2;text-align:center;min-height:78px;justify-content:center}.uxq button span{font-size:24px}.uxq button:first-child{background:var(--accent);color:#fff;border-color:var(--accent)}
+@media(max-width:380px){.uxq{grid-template-columns:repeat(2,1fr)}}
+.uxstart{border:2px solid var(--accent-soft)}.uxbar{height:8px;border-radius:99px;background:var(--line);margin:10px 0 6px;overflow:hidden}.uxbar i{display:block;height:100%;background:var(--accent);border-radius:99px}
+.uxstep{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-top:1px solid var(--line)}.uxstep small{display:block;color:var(--muted)}.uxstep.ok b{color:var(--muted);text-decoration:line-through}.uxn{width:26px;height:26px;border-radius:50%;background:var(--accent-soft);color:var(--accent);font-weight:700;display:flex;align-items:center;justify-content:center;flex:none}.uxstep.ok .uxn{background:var(--green);color:#fff}
+.uxplus{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:12px}.uxplus button{display:flex;align-items:center;gap:10px;padding:14px 12px;font-size:15px;justify-content:flex-start;border-radius:var(--radius)}.uxplus button span{font-size:22px}.uxplus button.on{border-color:var(--accent);color:var(--accent);font-weight:700}
+@media(max-width:899px){nav#nav{overflow-x:visible}nav#nav button{min-width:0;flex:1 1 0}}
+details.uxf>summary{list-style:none;display:flex;align-items:center;justify-content:space-between;gap:8px;cursor:pointer;margin:-14px;padding:14px}details.uxf>summary::-webkit-details-marker{display:none}details.uxf>summary h3{margin:0}details.uxf>summary>.row{flex:1;margin:0}details.uxf[open]>summary{margin-bottom:0}details.uxf .uxchev{font-size:22px;color:var(--muted);transition:transform .2s}details.uxf[open] .uxchev{transform:rotate(90deg)}details.uxf[open]>summary+*{margin-top:12px}`;document.head.appendChild(st)}
+
 /* ================= Démarrage ================= */
 async function loadLocal(){const st=await DB.all('settings');
  for(const s of ['clients','catalog','expenses','docs'])S[s]=await DB.all(s);
