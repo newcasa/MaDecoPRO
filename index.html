@@ -108,6 +108,19 @@ table.t input{margin:0;padding:6px 8px}
 .typeopt.on{border-color:var(--accent);background:var(--accent-soft)}
 .typeopt small{display:block;color:var(--muted);font-size:12px}
 .typeopt input{margin-top:2px}
+.bl{display:inline-block;border-bottom:1px dotted #888;height:1.15em;vertical-align:bottom}
+.blk-seller{width:56%;font-size:12px}.fl{display:flex;gap:6px;align-items:flex-end;margin:6px 0}.fl .lab{white-space:nowrap;color:#555}.fl .bl.fx{flex:1;width:auto}
+.endrow{display:flex;gap:16px;align-items:stretch;margin-top:4px}.endrow .sigl{flex:1;border:1px dashed #bbb;border-radius:6px;padding:8px;font-size:12px;color:#666}.endrow .inv-tot{width:52%;margin:0}
+.cbox{border:1px solid #e5dde1;border-radius:8px;padding:6px 12px 4px;margin-bottom:10px}.cbox .lbl{font-size:11px;text-transform:uppercase;color:#888;letter-spacing:.5px}
+.inv.blank .inv-to div{margin:7px 0}.inv.blank .inv-ev{margin:12px 0}
+.inv table.lgrid td{height:8.2mm;border:1px solid #ddd}.inv table.lgrid th{border:1px solid #ddd}
+.inv-tot.bt td{padding:7px 8px}
+.rbox{border:1px solid #e5dde1;border-radius:8px;padding:6px 14px;margin:8px 0 16px}
+.rrow{display:flex;gap:12px;align-items:flex-end;padding:9px 0;border-bottom:1px solid #f1eaee}.rrow:last-child{border-bottom:0}
+.rrow>span:first-child{width:130px;flex:0 0 130px;color:#777}.rrow .bl{flex:1}.rrow.big b{font-size:20px}
+.rcpt .inv-title{font-size:21px}
+.sign2{display:flex;gap:16px;margin-top:22px}.sign2 div{flex:1;border:1px dashed #bbb;border-radius:6px;height:80px;padding:8px;font-size:12px;color:#666}
+.navrow{display:flex;gap:6px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)}.navrow:last-child{border-bottom:0}.navrow .grow{flex:1}.navnum{width:22px;color:var(--muted);font-size:13px}.navrow button{min-width:36px;justify-content:center}.navrow button:disabled{opacity:.3}
 .dl{display:flex;gap:10px;align-items:flex-start;padding:10px 4px;border-bottom:1px solid var(--line)}
 .dl:last-child{border-bottom:0}
 .dl input{margin-top:3px}
@@ -203,16 +216,7 @@ body.locked{padding-left:0!important}
 </head>
 <body>
 <header class="top"><div class="brand" id="brandName">Ma Déco Pro</div><button id="syncBadge" class="syncb" data-act="syncInfo" hidden></button></header>
-<nav id="nav">
- <button data-go="dash" data-view="dash"><span>📊</span>Tableau</button>
- <button data-go="agenda" data-view="agenda"><span>📅</span>Échéances</button>
- <button data-go="docs" data-view="docs"><span>🧾</span>Factures</button>
- <button data-go="cat" data-view="cat"><span>🎈</span>Catalogue</button>
- <button data-go="exp" data-view="exp"><span>📷</span>Dépenses</button>
- <button data-go="cli" data-view="cli"><span>👥</span>Clients</button>
- <button data-go="mat" data-view="mat"><span>🧰</span>Matériel</button>
- <button data-go="set" data-view="set"><span>⚙️</span>Réglages</button>
-</nav>
+<nav id="nav"></nav>
 <main id="app"><div class="empty">Chargement…</div></main>
 <div id="modal" class="modal hidden"><div class="modal-box"><div id="modalBody"></div></div></div>
 <div id="printArea"></div>
@@ -508,9 +512,15 @@ function yearStats(y){
  return{inv,caFact,enc,dep,benef,...sc,encM:encM.map(r2),depM:depM.map(r2)}}
 
 /* ================= Rendu général ================= */
+const CN=()=>S.settings.caisse||'votre caisse';
+const caisseTxt=h=>String(h).replace(/§MAIL§/g,()=>esc(S.settings.caisseMail||'votre caisse')).replace(/§DE§/g,()=>"la caisse "+esc(CN())).replace(/§C§/g,()=>esc(CN()));
+const NAV=[['dash','📊','Tableau'],['agenda','📅','Échéances'],['docs','🧾','Factures'],['cat','🎈','Catalogue'],['exp','📷','Dépenses'],['cli','👥','Clients'],['mat','🧰','Matériel'],['set','⚙️','Réglages']];
+function navOrder(){const o=(S.settings.navOrder||[]).filter(v=>NAV.some(n=>n[0]===v));NAV.forEach(n=>{if(!o.includes(n[0]))o.push(n[0])});return o}
+function renderNav(){const h=navOrder().map(v=>{const n=NAV.find(x=>x[0]===v);return `<button data-go="${n[0]}" data-view="${n[0]}"><span>${n[1]}</span>${n[2]}</button>`}).join('');const el=$('#nav');if(el.dataset.h!==h){el.innerHTML=h;el.dataset.h=h}}
 function render(){
  Sync.needRender=false;
  const map={doc:'docs',editor:'docs',client:'cli',pack:'cat'};const cur=map[VIEW]||VIEW;
+ renderNav();
  document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.view===cur));
  $('#brandName').textContent=S.settings.nom||'Ma Déco Pro';
  const V={agenda:vAgenda,dash:vDash,docs:vDocs,doc:vDoc,editor:vEditor,pack:vPack,cat:vCat,exp:vExp,mat:vMat,cli:vCli,client:vClient,set:vSet};
@@ -916,7 +926,7 @@ function deadlines(){const s=S.settings,out=[],y0=new Date().getFullYear(),st=s.
     desc:"Date limite exacte à vérifier sur MyMinfin (Tax-on-web : en général fin juin – mi-juillet ; plus tard si un comptable la fait). Déclarez vos bénéfices d'indépendant avec votre salaire. Exportez vos recettes et dépenses (Réglages) pour la préparer."});
   [['04-10',1,y],['07-10',2,y],['10-10',3,y],['01-10',4,y+1]].forEach(([md,q,yy])=>{const d=`${yy}-${md}`,qEnd=`${y}-${['03-31','06-30','09-30','12-31'][q-1]}`;if(!ok(qEnd))return;
    out.push({key:`clas-${y}-T${q}`,date:d,cat:'admin',title:`Classer les pièces du ${q}${q>1?'e':'er'} trimestre ${y}`,
-    desc:"Vérifiez que chaque dépense a sa photo, que chaque facture payée est marquée « payée », envoyez les pièces à votre comptable s'il y en a un, et faites une sauvegarde de l'appli."})});
+    desc:"Vérifiez que chaque dépense a sa photo, que chaque facture payée est marquée « payée », téléchargez le dossier comptable du mois ou de l'année (Réglages › 📦 Dossier comptable) pour votre comptable, et faites une sauvegarde de l'appli."})});
   if(ok(`${y}-12-31`)){out.push({key:`inv-${y}`,date:`${y}-12-31`,cat:'admin',title:`Inventaire du stock au 31/12/${y}`,desc:"Comptez votre stock, corrigez-le dans le Catalogue, puis exportez l'inventaire (Réglages) pour votre comptable."});
    out.push({key:`tva-${y}`,date:`${y}-12-15`,cat:'tva',title:`Contrôle franchise TVA ${y}`,desc:`Vérifiez la jauge du tableau de bord (plafond ${eur(s.plafond)}) et demandez à l'UCM / au comptable si une déclaration ou un listing TVA annuel est à déposer.`})}
  }
@@ -992,11 +1002,177 @@ function buildIcs(){const t=todayISO(),L=deadlines().filter(x=>x.date>=t&&!dlDon
    ...al('-P6DT15H','Dans 7 jours : '+x.title),...al('-PT15H','Demain : '+x.title),'END:VEVENT')});
  out.push('END:VCALENDAR');return{text:out.map(icsFold).join('\r\n'),n:L.length}}
 
+/* ================= REÇUS D'ACOMPTE & DOCUMENTS VIERGES ================= */
+function nWords(n){n=Math.floor(n);const U=['zéro','un','deux','trois','quatre','cinq','six','sept','huit','neuf','dix','onze','douze','treize','quatorze','quinze','seize','dix-sept','dix-huit','dix-neuf'],T=['','','vingt','trente','quarante','cinquante','soixante','septante','quatre-vingt','nonante'];
+ const lt100=x=>{if(x<20)return U[x];const t=Math.floor(x/10),r=x%10;if(t===8&&!r)return 'quatre-vingts';return T[t]+(r===1&&t<8?' et un':r?'-'+U[r]:'')};
+ const lt1000=x=>{const h=Math.floor(x/100),r=x%100;let w=h?(h===1?'cent':U[h]+(r?' cent':' cents')):'';if(r)w+=(w?' ':'')+lt100(r);return w||'zéro'};
+ if(n<1000)return lt1000(n);if(n<1e6){const k=Math.floor(n/1000),r=n%1000;return (k===1?'mille':lt1000(k).replace(/cents$/,'cent')+' mille')+(r?' '+lt1000(r):'')}
+ const m=Math.floor(n/1e6),r=n%1e6;return lt1000(m)+' million'+(m>1?'s':'')+(r?' '+nWords(r):'')}
+function amountWords(a){a=r2(Math.abs(a));const e=Math.floor(a),c=Math.round((a-e)*100);return `${nWords(e)} euro${e>1?'s':''}${c?` et ${nWords(c)} centime${c>1?'s':''}`:''}`}
+const allPayments=()=>{const L=[];S.docs.forEach(d=>(d.payments||[]).forEach(p=>L.push({p,d})));return L};
+function nextRcpt(date){const pre='RA-'+String(date||todayISO()).slice(0,4)+'-';const n=allPayments().map(x=>x.p.rcpt).filter(r=>r&&r.startsWith(pre)).map(r=>parseInt(r.slice(pre.length))||0).reduce((a,b)=>Math.max(a,b),0);return pre+String(n+1).padStart(3,'0')}
+const bl=(w='100%')=>`<span class="bl" style="width:${w}"></span>`;
+const fl=(...labs)=>`<div class="fl">${labs.map(l=>`<span class="lab">${l}</span><span class="bl fx"></span>`).join('')}</div>`;
+function sellerHTML(){const s=S.settings;
+ if(!s.nom)return `<div class="blk-seller">${fl('Entreprise :')}${fl('Adresse :')}${fl('')}${fl('N° d\'entreprise :')}${fl('Tél. :','E-mail :')}${fl('IBAN :')}</div>`;
+ return `<div class="inv-from">${s.logo?`<img src="${s.logo}" class="inv-logo" alt="">`:''}<div><b class="inv-name">${esc(s.nom)}</b>${s.titulaire?'<br>'+esc(s.titulaire):''}${s.adresse?'<br>'+esc(s.adresse):''}${s.cpVille?'<br>'+esc(s.cpVille):''}${s.bce?'<br>N° d\'entreprise : '+esc(s.bce):''}${s.tel?'<br>Tél. '+esc(s.tel):''}${s.email?'<br>'+esc(s.email):''}</div></div>`}
+const footHTML=()=>{const s=S.settings;return `<div class="inv-foot">${esc([s.nom,s.bce?'BCE '+s.bce:'',s.iban?'IBAN '+s.iban:''].filter(Boolean).join(' · '))||'&nbsp;'}</div>`};
+function rcptHTML(d,p){const s=S.settings,c=clientById(d.clientId)||{},T=docTotal(d).total,L=(d.payments||[]).slice().sort((a,b)=>(a.date||'').localeCompare(b.date||'')),i=L.findIndex(x=>x.id===p.id),upto=sum(L.slice(0,i+1),x=>num(x.amount)),rest=r2(T-upto),isQ=d.type==='devis';
+ const ref=isQ?`Acompte sur le devis n° <b>${esc(d.number||'—')}</b> du ${fd(d.date)}`:`${rest<=0.005?'Solde':'Paiement'} de la facture n° <b>${esc(d.number||'—')}</b> du ${fd(d.date)}`;
+ return `<div class="inv rcpt"><div class="inv-top">${sellerHTML()}<div class="inv-meta"><div class="inv-title">${isQ?'REÇU POUR ACOMPTE':'REÇU DE PAIEMENT'}</div><table><tr><td>N°</td><td><b>${esc(p.rcpt||'—')}</b></td></tr><tr><td>Date</td><td>${fd(p.date)}</td></tr></table></div></div>
+ <div class="rbox"><div class="rrow"><span>Reçu de</span><b>${esc(clientName(c))}${c.adresse?' – '+esc([c.adresse,[c.cp,c.ville].filter(Boolean).join(' ')].filter(Boolean).join(', ')):''}</b></div>
+ <div class="rrow big"><span>La somme de</span><b>${eur(p.amount)}</b></div>
+ <div class="rrow"><span>En toutes lettres</span><i>${esc(amountWords(p.amount))}</i></div>
+ <div class="rrow"><span>Mode de paiement</span><b>${esc(p.mode||'')}</b></div>
+ <div class="rrow"><span>Pour</span><span>${ref}${d.eventDate||d.eventPlace?`<br>Événement : ${fd(d.eventDate)}${d.eventPlace?' – '+esc(d.eventPlace):''}`:''}</span></div></div>
+ <table class="inv-tot"><tr><td>Montant total de la prestation</td><td>${eur(T)}</td></tr><tr><td>Total versé à ce jour (ce reçu compris)</td><td>${eur(upto)}</td></tr><tr class="big"><td>Reste à payer</td><td>${eur(Math.max(0,rest))}</td></tr></table>
+ <div class="inv-mention">${esc(s.mention||'Régime particulier de franchise des petites entreprises')}</div>
+ ${isQ?'<div class="inv-cond"><small>Cet acompte confirme la réservation de la date. Il sera déduit de la facture finale. Ce reçu ne remplace pas la facture.</small></div>':'<div class="inv-cond"><small>Ce reçu confirme le paiement reçu. Il ne remplace pas la facture.</small></div>'}
+ <div class="inv-sign"><div>Pour ${esc(s.nom||'l\'entreprise')}, signature :</div></div>${footHTML()}</div>`}
+function blankRcptHTML(){const s=S.settings;return `<div class="inv rcpt"><div class="inv-top">${sellerHTML()}<div class="inv-meta"><div class="inv-title">REÇU POUR ACOMPTE</div><table><tr><td>N°</td><td>${bl('34mm')}</td></tr><tr><td>Date</td><td>${bl('34mm')}</td></tr></table></div></div>
+ <div class="rbox"><div class="rrow"><span>Reçu de</span>${bl()}</div><div class="rrow"><span>Adresse</span>${bl()}</div>
+ <div class="rrow big"><span>La somme de</span><span class="eurline">${bl('40mm')} €</span></div>
+ <div class="rrow"><span>En toutes lettres</span>${bl()}</div><div class="rrow"><span></span>${bl()}</div>
+ <div class="rrow"><span>Mode de paiement</span><span class="cks">☐ Espèces &nbsp; ☐ Virement &nbsp; ☐ Payconiq &nbsp; ☐ Carte &nbsp; ☐ Autre : ${bl('25mm')}</span></div>
+ <div class="rrow"><span>Pour</span><span>Acompte sur le devis n° ${bl('30mm')} du ${bl('28mm')}</span></div>
+ <div class="rrow"><span>Événement</span><span>Date : ${bl('30mm')} Lieu : ${bl('60mm')}</span></div></div>
+ <table class="inv-tot bt"><tr><td>Montant total de la prestation</td><td>${bl('30mm')} €</td></tr><tr><td>Total versé à ce jour (ce reçu compris)</td><td>${bl('30mm')} €</td></tr><tr class="big"><td>Reste à payer</td><td>${bl('30mm')} €</td></tr></table>
+ <div class="inv-mention">${esc(s.mention||'Régime particulier de franchise des petites entreprises')}</div>
+ <div class="inv-cond"><small>Cet acompte confirme la réservation de la date. Il sera déduit de la facture finale. Ce reçu ne remplace pas la facture.</small></div>
+ <div class="sign2"><div>Signature du client</div><div>Pour ${esc(s.nom||'l\'entreprise')}, signature</div></div>${footHTML()}</div>`}
+function blankDevisHTML(){const s=S.settings,rows=Array.from({length:8},()=>'<tr><td>&nbsp;</td><td></td><td></td></tr>').join('');
+ return `<div class="inv blank"><div class="inv-top">${sellerHTML()}<div class="inv-meta"><div class="inv-title">DEVIS</div><table><tr><td>N°</td><td>${bl('36mm')}</td></tr><tr><td>Date</td><td>${bl('36mm')}</td></tr><tr><td>Valable jusqu'au</td><td>${bl('36mm')}</td></tr></table></div></div>
+ <div class="cbox"><div class="lbl">Client</div>${fl('Nom :')}${fl('Adresse :')}${fl('Tél. :','E-mail :')}${fl('N° TVA (si entreprise) :')}</div>
+ <div class="cbox"><div class="lbl">Événement</div>${fl('Type :','Date :')}${fl('Lieu :')}${fl('Couleurs / thème :')}</div>
+ <table class="lines lgrid"><tr><th style="width:68%">Désignation</th><th class="r" style="width:14%">Quantité</th><th class="r" style="width:18%">Prix</th></tr>${rows}</table>
+ <div class="endrow"><div class="sigl">Bon pour accord<br>Date et signature du client :</div><table class="inv-tot bt"><tr><td>Sous-total</td><td>${bl('26mm')} €</td></tr><tr><td>Remise</td><td>${bl('26mm')} €</td></tr><tr class="big"><td>Total</td><td>${bl('26mm')} €</td></tr>
+  <tr><td>Acompte ${num(s.acompte)?num(s.acompte)+' %':bl('10mm')+' %'}</td><td>${bl('26mm')} €</td></tr></table></div>
+ <div class="inv-mention">${esc(s.mention||'Régime particulier de franchise des petites entreprises')}</div>
+ ${s.conditions?`<div class="inv-cond"><small>${esc(s.conditions)}</small></div>`:''}
+ ${footHTML()}</div>`}
+
+const HELV_R=[278,278,355,556,556,889,667,191,333,333,389,584,278,333,278,278,556,556,556,556,556,556,556,556,556,556,278,278,584,584,584,556,1015,667,667,722,722,667,611,778,722,278,500,667,556,833,722,778,667,778,722,667,611,722,667,944,667,667,611,278,278,278,469,556,333,556,556,500,556,556,278,556,556,222,222,500,222,833,556,556,556,556,333,500,278,556,500,722,500,500,500,334,260,334,584,761,556,0,222,556,333,1000,556,556,333,1000,667,333,1000,0,611,0,0,222,222,333,333,350,556,1000,333,1000,500,333,944,0,500,667,278,333,556,556,556,556,260,556,333,737,370,556,584,333,737,333,400,584,333,333,333,556,537,278,333,333,365,556,834,834,834,611,667,667,667,667,667,667,1000,722,667,667,667,667,278,278,278,278,722,722,778,778,778,778,778,584,778,722,722,722,722,667,667,611,556,556,556,556,556,556,889,500,556,556,556,556,278,278,278,278,556,556,556,556,556,556,556,584,611,556,556,556,556,500,556,500];
+const HELV_B=[278,333,474,556,556,889,722,238,333,333,389,584,278,333,278,278,556,556,556,556,556,556,556,556,556,556,333,333,584,584,584,611,975,722,722,722,722,667,611,778,722,278,556,722,611,833,722,778,667,778,722,667,611,722,667,944,667,667,611,333,278,333,584,556,333,556,611,556,611,556,333,611,611,278,278,556,278,889,611,611,611,611,389,556,333,611,556,778,556,556,500,389,280,389,584,761,556,0,278,556,500,1000,556,556,333,1000,667,333,1000,0,611,0,0,278,278,500,500,350,556,1000,333,1000,556,333,944,0,500,667,278,333,556,556,556,556,280,556,333,737,370,556,584,333,737,333,400,584,333,333,333,611,556,278,333,333,365,556,834,834,834,611,722,722,722,722,722,722,1000,722,667,667,667,667,278,278,278,278,722,722,778,778,778,778,778,584,778,722,722,722,722,667,667,611,556,556,556,556,556,556,889,556,556,556,556,556,278,278,278,278,611,611,611,611,611,611,611,584,611,611,611,611,611,556,611,556];
+/* ================= EXPORT COMPTABLE : PDF + ZIP (100 % hors ligne) ================= */
+const WIN={0x20AC:0x80,0x201A:0x82,0x192:0x83,0x201E:0x84,0x2026:0x85,0x2020:0x86,0x2021:0x87,0x2C6:0x88,0x2030:0x89,0x160:0x8A,0x2039:0x8B,0x152:0x8C,0x17D:0x8E,0x2018:0x91,0x2019:0x92,0x201C:0x93,0x201D:0x94,0x2022:0x95,0x2013:0x96,0x2014:0x97,0x2DC:0x98,0x2122:0x99,0x161:0x9A,0x203A:0x9B,0x153:0x9C,0x17E:0x9E,0x178:0x9F,0x202F:0x20,0x2009:0x20,0x200A:0x20,0x2007:0x20,0x2192:0x3E,0x2265:0x3E,0x2264:0x3C,0x2212:0x2D,0x2713:0x76};
+function winBytes(str){const out=[];for(const ch of String(str??'')){const c=ch.codePointAt(0);if(c<128)out.push(c);else if(WIN[c]!==undefined)out.push(WIN[c]);else if(c<256&&!(c>=0x80&&c<0xA0))out.push(c);else out.push(0x3F)}return out}
+function textW(str,size,bold){const T=bold?HELV_B:HELV_R;let w=0;for(const b of winBytes(str))w+=b>=32?T[b-32]||556:0;return w*size/1000}
+function wrapText(str,size,bold,maxW){const out=[];String(str??'').split('\n').forEach(par=>{let line='';par.split(/\s+/).forEach(word=>{const t=line?line+' '+word:word;if(textW(t,size,bold)<=maxW||!line)line=t;else{out.push(line);line=word}});out.push(line)});return out}
+function hexToRgb(h){h=h.replace('#','');return[0,2,4].map(i=>parseInt(h.slice(i,i+2),16)/255)}
+class MiniPDF{
+ constructor(){this.W=595.28;this.H=841.89;this.pages=[];this.images=[];this.addPage()}
+ addPage(){this.cur=[];this.pages.push(this.cur);return this}
+ pdfStr(str){return '('+winBytes(str).map(b=>b===40||b===41||b===92?'\\'+String.fromCharCode(b):b<32||b>126?'\\'+b.toString(8).padStart(3,'0'):String.fromCharCode(b)).join('')+')'}
+ col(c,stroke){const [r,g,b]=hexToRgb(c||'#222222');return `${r.toFixed(3)} ${g.toFixed(3)} ${b.toFixed(3)} ${stroke?'RG':'rg'}`}
+ text(x,y,str,o={}){const size=o.size||10,bold=!!o.bold;let tx=x;const w=textW(str,size,bold);if(o.align==='right')tx=x-w;else if(o.align==='center')tx=x-w/2;
+  this.cur.push(`BT ${this.col(o.color)} /${bold?'F2':'F1'} ${size} Tf ${tx.toFixed(2)} ${(this.H-y).toFixed(2)} Td ${this.pdfStr(str)} Tj ET`);return w}
+ line(x1,y1,x2,y2,o={}){this.cur.push(`${this.col(o.color||'#dddddd',1)} ${o.w||0.6} w ${o.dash?'[1.5 2] 0 d':'[] 0 d'} ${x1.toFixed(2)} ${(this.H-y1).toFixed(2)} m ${x2.toFixed(2)} ${(this.H-y2).toFixed(2)} l S`)}
+ rect(x,y,w,h,o={}){const op=o.fill&&o.stroke?'B':o.fill?'f':'S';this.cur.push(`${o.fill?this.col(o.fill):''} ${o.stroke?this.col(o.stroke,1)+' '+(o.w||0.6)+' w':''} [] 0 d ${x.toFixed(2)} ${(this.H-y-h).toFixed(2)} ${w.toFixed(2)} ${h.toFixed(2)} re ${op}`)}
+ image(jpgBytes,pw,ph,x,y,w,h){const n=this.images.length;this.images.push({bytes:jpgBytes,pw,ph});this.cur.push(`q ${w.toFixed(2)} 0 0 ${h.toFixed(2)} ${x.toFixed(2)} ${(this.H-y-h).toFixed(2)} cm /Im${n} Do Q`)}
+ bytes(){const enc=new TextEncoder(),chunks=[],offs=[];let len=0;const push=b=>{const u=typeof b==='string'?Uint8Array.from(b,c=>c.charCodeAt(0)&255):b;chunks.push(u);len+=u.length};
+  const objs=[];const add=o=>{objs.push(o);return objs.length};
+  const cat=add(null),pagesId=add(null),f1=add('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>'),f2=add('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>');
+  const imgIds=this.images.map(im=>add({head:`<< /Type /XObject /Subtype /Image /Width ${im.pw} /Height ${im.ph} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${im.bytes.length} >>`,data:im.bytes}));
+  const xo=imgIds.length?`/XObject << ${imgIds.map((id,i)=>`/Im${i} ${id} 0 R`).join(' ')} >>`:'';
+  const pageIds=this.pages.map(cmds=>{const s=cmds.join('\n');const cid=add({head:`<< /Length ${s.length} >>`,data:Uint8Array.from(s,c=>c.charCodeAt(0)&255)});return add(`<< /Type /Page /Parent ${pagesId} 0 R /MediaBox [0 0 ${this.W} ${this.H}] /Resources << /Font << /F1 ${f1} 0 R /F2 ${f2} 0 R >> ${xo} >> /Contents ${cid} 0 R >>`)});
+  objs[cat-1]=`<< /Type /Catalog /Pages ${pagesId} 0 R >>`;objs[pagesId-1]=`<< /Type /Pages /Kids [${pageIds.map(i=>i+' 0 R').join(' ')}] /Count ${pageIds.length} >>`;
+  push('%PDF-1.4\n%\xE2\xE3\xCF\xD3\n');
+  objs.forEach((o,i)=>{offs.push(len);push(`${i+1} 0 obj\n`);if(typeof o==='string')push(o+'\n');else{push(o.head+'\nstream\n');push(o.data);push('\nendstream\n')}push('endobj\n')});
+  const xref=len;push(`xref\n0 ${objs.length+1}\n0000000000 65535 f \n`+offs.map(o=>String(o).padStart(10,'0')+' 00000 n \n').join(''));
+  push(`trailer\n<< /Size ${objs.length+1} /Root ${cat} 0 R >>\nstartxref\n${xref}\n%%EOF`);
+  const out=new Uint8Array(len);let p=0;chunks.forEach(c=>{out.set(c,p);p+=c.length});return out}
+}
+const dataURLbytes=d=>{const b=atob(d.split(',')[1]);const u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u};
+let LOGO_JPG=null;
+async function logoJpeg(){const s=S.settings;if(!s.logo)return null;if(LOGO_JPG&&LOGO_JPG.src===s.logo)return LOGO_JPG;
+ return new Promise(res=>{const img=new Image();img.onload=()=>{const k=Math.min(1,400/Math.max(img.width,img.height)),w=Math.round(img.width*k),h=Math.round(img.height*k),c=document.createElement('canvas');c.width=w;c.height=h;const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,w,h);x.drawImage(img,0,0,w,h);LOGO_JPG={src:s.logo,bytes:dataURLbytes(c.toDataURL('image/jpeg',0.9)),w,h};res(LOGO_JPG)};img.onerror=()=>res(null);img.src=s.logo})}
+const ACC='#c2457a';
+function pdfHeader(P,title,meta,logo){const s=S.settings,M=42;let y=48;
+ if(logo){const k=Math.min(80/logo.w,55/logo.h);P.image(logo.bytes,logo.w,logo.h,M,y-10,logo.w*k,logo.h*k)}
+ const sx=logo?M+90:M;let sy=y;P.text(sx,sy,s.nom||'',{size:13,bold:true});sy+=15;
+ [s.titulaire,s.adresse,s.cpVille,s.bce?'N° d\'entreprise : '+s.bce:'',s.tel?'Tél. '+s.tel:'',s.email].filter(Boolean).forEach(t=>{P.text(sx,sy,t,{size:9.5});sy+=12});
+ P.text(P.W-M,y,title,{size:19,bold:true,color:ACC,align:'right'});let my=y+20;
+ meta.forEach(([k,v])=>{P.text(P.W-M-110,my,k,{size:9.5,color:'#777777',align:'right'});P.text(P.W-M,my,v,{size:9.5,bold:true,align:'right'});my+=13});
+ return Math.max(sy,my,logo?y+60:0)+14}
+function pdfFooter(P){const s=S.settings,t=[s.nom,s.bce?'BCE '+s.bce:'',s.iban?'IBAN '+s.iban:''].filter(Boolean).join(' · ');P.pages.forEach((pg,i)=>{P.cur=pg;P.line(42,808,P.W-42,808,{color:'#eeeeee'});P.text(P.W/2,820,t,{size:8,color:'#888888',align:'center'});if(P.pages.length>1)P.text(P.W-42,820,`${i+1}/${P.pages.length}`,{size:8,color:'#888888',align:'right'})})}
+async function docPDF(d){const s=S.settings,c=clientById(d.clientId)||{},T=docTotal(d),Pd=paid(d),P=new MiniPDF(),M=42,RX=P.W-M,logo=await logoJpeg();
+ const ref=d.type==='nc'?S.docs.find(x=>x.id===d.refInvoice):null,title={facture:'FACTURE',devis:'DEVIS',nc:'NOTE DE CRÉDIT'}[d.type];
+ const meta=[['N°',d.number||'—'],['Date',fd(d.date)]];if(d.type==='facture'&&d.dueDate)meta.push(['Échéance',fd(d.dueDate)]);if(d.type==='devis'&&d.validUntil)meta.push(['Valable jusqu\'au',fd(d.validUntil)]);if(ref)meta.push(['Facture annulée',ref.number]);
+ let y=pdfHeader(P,title,meta,logo);
+ const cl=[clientName(c),c.societe&&(c.prenom||c.nom)?[c.prenom,c.nom].filter(Boolean).join(' '):'',c.adresse,[c.cp,c.ville].filter(Boolean).join(' '),c.tva?'N° TVA : '+c.tva:''].filter(Boolean);
+ const bx=P.W/2+10,bh=20+cl.length*12;P.rect(bx,y,RX-bx,bh,{stroke:'#e5dde1'});P.text(bx+10,y+14,d.type==='devis'?'CLIENT':'CLIENT FACTURÉ',{size:7.5,color:'#888888'});cl.forEach((t,i)=>P.text(bx+10,y+28+i*12,t,{size:9.5,bold:i===0}));y+=bh+14;
+ if(d.eventDate||d.eventPlace){P.text(M,y,'Événement :',{size:9.5,bold:true});P.text(M+62,y,[fd(d.eventDate),d.eventPlace].filter(Boolean).join(' – '),{size:9.5});y+=18}
+ const cx=[M,M+300,M+390,RX];const head=()=>{P.rect(M,y,RX-M,18,{fill:'#f6eef2'});P.text(M+6,y+12,'DÉSIGNATION',{size:8,bold:true});P.text(cx[2]-25,y+12,'QUANTITÉ',{size:8,bold:true,align:'right'});P.text(cx[2]+50,y+12,'PRIX UNITAIRE',{size:8,bold:true,align:'right'});P.text(RX-6,y+12,'TOTAL',{size:8,bold:true,align:'right'});y+=24};head();
+ (d.lines||[]).forEach(l=>{const nl=wrapText(l.name,9.5,false,270),dl=l.desc?wrapText(l.desc,8,false,270):[];const h=nl.length*12+dl.length*10+6;if(y+h>780){P.addPage();y=50;head()}
+  nl.forEach((t,i)=>P.text(M+6,y+i*12,t,{size:9.5}));dl.forEach((t,i)=>P.text(M+6,y+nl.length*12+i*10,t,{size:8,color:'#777777'}));
+  P.text(cx[2]-25,y,`${nf(l.qty)} ${l.unit||''}`.trim(),{size:9.5,align:'right'});P.text(cx[2]+50,y,eur(l.price),{size:9.5,align:'right'});P.text(RX-6,y,eur(lineTotal(l)),{size:9.5,align:'right'});y+=h;P.line(M,y-6,RX,y-6,{color:'#eeeeee'})});
+ const rows=[];if(T.rem)rows.push(['Sous-total',eur(T.sub)],[`Remise ${num(d.remise)} %`,'− '+eur(T.rem)]);rows.push([d.type==='nc'?'Montant crédité':d.type==='devis'?'Total':'Total à payer',eur(T.total),1]);
+ if(d.type==='facture'&&Pd>0)rows.push(['Déjà payé','− '+eur(Pd)],['Reste à payer',eur(Math.max(0,T.total-Pd)),2]);
+ if(y+rows.length*16+120>790){P.addPage();y=50}y+=6;const tx=P.W/2+20;
+ rows.forEach(([k,v,b])=>{if(b===1){P.line(tx,y-2,RX,y-2,{color:'#222222',w:1.4});y+=6}P.text(tx,y+8,k,{size:b===1?11.5:9.5,bold:!!b});P.text(RX-6,y+8,v,{size:b===1?11.5:9.5,bold:!!b,align:'right'});y+=b===1?20:15});y+=10;
+ const mention=s.mention||'Régime particulier de franchise des petites entreprises';P.rect(M,y,RX-M,20,{fill:'#fbf7f9',stroke:'#e5dde1'});P.text(M+8,y+13.5,mention,{size:9.5,bold:true});y+=32;
+ const para=(t,size,color)=>{wrapText(t,size,false,RX-M).forEach(l=>{if(y>790){P.addPage();y=50}P.text(M,y,l,{size,color});y+=size+3});y+=6};
+ if(d.type==='facture'&&s.iban)para(`Paiement par virement sur le compte ${s.iban}${s.bic?' (BIC '+s.bic+')':''}${d.dueDate?' avant le '+fd(d.dueDate):''}, avec la communication : Facture ${d.number||''}.`,9.5);
+ if(d.notes)para(d.notes,9.5);if(d.type!=='nc'&&s.conditions)para(s.conditions,8,'#555555');
+ if(!d.number){P.cur=P.pages[0];P.text(P.W/2,430,'BROUILLON',{size:60,bold:true,color:'#f3d9e4',align:'center'})}
+ pdfFooter(P);return P.bytes()}
+async function rcptPDF(d,p){const s=S.settings,c=clientById(d.clientId)||{},T=docTotal(d).total,L=(d.payments||[]).slice().sort((a,b)=>(a.date||'').localeCompare(b.date||'')),i=L.findIndex(x=>x.id===p.id),upto=sum(L.slice(0,i+1),x=>num(x.amount)),rest=r2(T-upto),isQ=d.type==='devis';
+ const P=new MiniPDF(),M=42,RX=P.W-M,logo=await logoJpeg();let y=pdfHeader(P,isQ?'REÇU POUR ACOMPTE':'REÇU DE PAIEMENT',[['N°',p.rcpt||'—'],['Date',fd(p.date)]],logo);
+ const rows=[['Reçu de',clientName(c)+(c.adresse?' – '+[c.adresse,[c.cp,c.ville].filter(Boolean).join(' ')].filter(Boolean).join(', '):'')],['La somme de',eur(p.amount),1],['En toutes lettres',amountWords(p.amount)],['Mode de paiement',p.mode||''],['Pour',(isQ?`Acompte sur le devis n° ${d.number||'—'} du ${fd(d.date)}`:`${rest<=0.005?'Solde':'Paiement'} de la facture n° ${d.number||'—'} du ${fd(d.date)}`)+(d.eventDate||d.eventPlace?` – événement : ${[fd(d.eventDate),d.eventPlace].filter(Boolean).join(' – ')}`:'')]];
+ const top=y;y+=8;rows.forEach(([k,v,b])=>{const ls=wrapText(v,b?15:10,!!b,RX-M-150);P.text(M+12,y+12,k,{size:9.5,color:'#777777'});ls.forEach((t,j)=>P.text(M+140,y+12+j*14,t,{size:b?15:10,bold:true}));y+=Math.max(1,ls.length)*14+12;P.line(M+10,y,RX-10,y,{color:'#f1eaee'})});
+ P.rect(M,top,RX-M,y-top+4,{stroke:'#e5dde1'});y+=24;const tx=P.W/2+20;
+ [['Montant total de la prestation',eur(T)],['Total versé à ce jour (ce reçu compris)',eur(upto)],['Reste à payer',eur(Math.max(0,rest)),1]].forEach(([k,v,b])=>{if(b){P.line(tx,y-2,RX,y-2,{color:'#222222',w:1.4});y+=6}P.text(tx,y+8,k,{size:b?11:9.5,bold:!!b});P.text(RX-6,y+8,v,{size:b?11:9.5,bold:!!b,align:'right'});y+=b?20:15});
+ y+=12;P.rect(M,y,RX-M,20,{fill:'#fbf7f9',stroke:'#e5dde1'});P.text(M+8,y+13.5,s.mention||'Régime particulier de franchise des petites entreprises',{size:9.5,bold:true});y+=34;
+ P.text(M,y,isQ?'Cet acompte confirme la réservation de la date. Il sera déduit de la facture finale. Ce reçu ne remplace pas la facture.':'Ce reçu confirme le paiement reçu. Il ne remplace pas la facture.',{size:8.5,color:'#555555'});
+ pdfFooter(P);return P.bytes()}
+/* ---- ZIP (méthode « stockée », noms en UTF-8) ---- */
+const CRC_T=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}return t})();
+const crc32=u=>{let c=0xFFFFFFFF;for(let i=0;i<u.length;i++)c=CRC_T[(c^u[i])&255]^(c>>>8);return(c^0xFFFFFFFF)>>>0};
+function makeZip(files){const enc=new TextEncoder(),parts=[],cen=[];let off=0;const now=new Date(),dt=((now.getHours()<<11)|(now.getMinutes()<<5)|(now.getSeconds()>>1))&0xFFFF,dd=(((now.getFullYear()-1980)<<9)|((now.getMonth()+1)<<5)|now.getDate())&0xFFFF;
+ files.forEach(f=>{const name=enc.encode(f.name),data=typeof f.data==='string'?enc.encode(f.data):f.data,crc=crc32(data),h=new DataView(new ArrayBuffer(30));
+  h.setUint32(0,0x04034b50,true);h.setUint16(4,20,true);h.setUint16(6,0x0800,true);h.setUint16(8,0,true);h.setUint16(10,dt,true);h.setUint16(12,dd,true);h.setUint32(14,crc,true);h.setUint32(18,data.length,true);h.setUint32(22,data.length,true);h.setUint16(26,name.length,true);h.setUint16(28,0,true);
+  parts.push(new Uint8Array(h.buffer),name,data);const c=new DataView(new ArrayBuffer(46));c.setUint32(0,0x02014b50,true);c.setUint16(4,20,true);c.setUint16(6,20,true);c.setUint16(8,0x0800,true);c.setUint16(10,0,true);c.setUint16(12,dt,true);c.setUint16(14,dd,true);c.setUint32(16,crc,true);c.setUint32(20,data.length,true);c.setUint32(24,data.length,true);c.setUint16(28,name.length,true);c.setUint32(42,off,true);
+  cen.push(new Uint8Array(c.buffer),name);off+=30+name.length+data.length});
+ const csz=cen.reduce((a,b)=>a+b.length,0),e=new DataView(new ArrayBuffer(22));e.setUint32(0,0x06054b50,true);e.setUint16(8,files.length,true);e.setUint16(10,files.length,true);e.setUint32(12,csz,true);e.setUint32(16,off,true);
+ return new Blob([...parts,...cen,new Uint8Array(e.buffer)],{type:'application/zip'})}
+/* ---- Dossier comptable mensuel / annuel ---- */
+const MOIS=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+const safeName=t=>String(t||'').replace(/[\\/:*?"<>|\u0000-\u001f]/g,'-').replace(/\s+/g,' ').trim().slice(0,80);
+const nf2=n=>nf(n).replace('.',',');
+async function buildCompta(year,month){const ys=String(year),pre=month?`${ys}-${String(month).padStart(2,'0')}`:ys,root=month?`Comptabilité ${pre} ${MOIS[month-1]}`:`Comptabilité ${ys}`;
+ const files=[],inP=d=>(d||'').startsWith(pre),months=month?[month]:Array.from({length:12},(_,i)=>i+1),SM=stockMap();
+ const docs=S.docs.filter(d=>(d.type==='facture'||d.type==='nc')&&d.number),pays=allPayments().filter(x=>x.d.number&&(x.d.type==='facture'||x.d.type==='devis')),exps=S.expenses;
+ let nDoc=0,nRc=0,nEx=0,miss=[];
+ for(const m of months){const mp=`${ys}-${String(m).padStart(2,'0')}`,dir=month?root:`${root}/${String(m).padStart(2,'0')} ${MOIS[m-1]}`;
+  const D=docs.filter(d=>d.date.startsWith(mp)).sort((a,b)=>a.number.localeCompare(b.number));
+  for(const d of D){files.push({name:`${dir}/1 Factures et notes de crédit/${safeName(`${d.number} ${TYPE_L[d.type]} ${clientName(clientById(d.clientId))}`)}.pdf`,data:await docPDF(d)});nDoc++}
+  const R=pays.filter(x=>(x.p.date||'').startsWith(mp));
+  for(const {p,d} of R){if(!p.rcpt){p.rcpt=nextRcpt(p.date);await save('docs',d)}files.push({name:`${dir}/2 Reçus (paiements et acomptes)/${safeName(`${p.rcpt} ${clientName(clientById(d.clientId))} ${nf2(p.amount)} EUR`)}.pdf`,data:await rcptPDF(d,p)});nRc++}
+  const E=exps.filter(e=>(e.date||'').startsWith(mp)).sort((a,b)=>a.date.localeCompare(b.date));
+  E.forEach((e,i)=>{if(!e.file){miss.push(e);return}const ext=e.file.type==='application/pdf'?'pdf':'jpg';files.push({name:`${dir}/3 Dépenses (tickets et factures d'achat)/${safeName(`${e.date} ${String(i+1).padStart(2,'0')} ${e.fournisseur||'Dépense'} ${nf2(e.montant)} EUR`)}.${ext}`,data:dataURLbytes(e.file.data)});nEx++});
+  if(!month&&(D.length||R.length||E.length))files.push({name:`${dir}/Résumé ${MOIS[m-1]} ${ys}.csv`,data:csv([['Type','Date','N°','Client / fournisseur','Montant'],...D.map(d=>[TYPE_L[d.type],fd(d.date),d.number,cname(d.clientId),dec(docTotal(d).total)]),...R.map(({p,d})=>['Encaissement',fd(p.date),p.rcpt||'',cname(d.clientId),dec(p.amount)]),...E.map(e=>['Dépense',fd(e.date),'',e.fournisseur||'',dec(-num(e.montant))])])})}
+ const D=docs.filter(d=>inP(d.date)).sort((a,b)=>a.number.localeCompare(b.number)),R=pays.filter(x=>inP(x.p.date)).sort((a,b)=>a.p.date.localeCompare(b.p.date)),E=exps.filter(e=>inP(e.date)).sort((a,b)=>a.date.localeCompare(b.date));
+ files.push({name:`${root}/Registre des factures.csv`,data:csv([['Numéro','Type','Date','Client','N° TVA client','Événement','Montant','Payé','Reste','Statut'],...D.map(d=>{const c=clientById(d.clientId)||{},T=docTotal(d).total,p=paid(d);return[d.number,TYPE_L[d.type],fd(d.date),clientName(c),c.tva||'',fd(d.eventDate),dec(T),dec(p),dec(d.type==='facture'&&!d.creditId?T-p:0),docStatus(d).l]})])});
+ files.push({name:`${root}/Recettes (encaissements).csv`,data:csv([['Date','Reçu','Document','Client','Mode','Montant'],...R.map(({p,d})=>[fd(p.date),p.rcpt||'',`${TYPE_L[d.type]} ${d.number}`,cname(d.clientId),p.mode||'',dec(p.amount)])])});
+ files.push({name:`${root}/Dépenses.csv`,data:csv([['Date','Fournisseur','Type','Produits','Mode de paiement','Note','Justificatif','Montant TTC'],...E.map(e=>[fd(e.date),e.fournisseur||'',EXP_SHORT[e.categorie]||'',(e.lines||[]).map(l=>nf(l.qty)+' x '+l.name).join(' | '),e.paiement||'',e.note||'',e.file?'oui':'NON',dec(e.montant)])])});
+ const cl=new Map();D.filter(d=>d.type==='facture'||d.type==='nc').forEach(d=>{const c=clientById(d.clientId)||{};if(!c.tva)return;const k=c.tva;cl.set(k,{n:clientName(c),t:(cl.get(k)?.t||0)+docTotal(d).total})});
+ if(!month)files.push({name:`${root}/Clients assujettis TVA (pour le listing annuel).csv`,data:csv([['Client','N° TVA','Total facturé '+ys],...[...cl.entries()].map(([k,v])=>[v.n,k,dec(v.t)])])});
+ if(!month||month===12)files.push({name:`${root}/Inventaire du stock (au ${fd(todayISO())}).csv`,data:csv([['Article','Catégorie','Unité','En stock','Prix d\'achat unitaire','Valeur'],...articles().filter(a=>catOf(a).type!=='service').map(a=>{const s=stk(a,SM);return[a.name,catLabel(a),a.unit||'',dec(s.stock),dec(a.cost),dec(Math.max(0,s.stock)*num(a.cost))]})])});
+ const st=month?null:yearStats(year),tFact=sum(D,d=>docTotal(d).total),tEnc=sum(R,x=>num(x.p.amount)),tDep=sum(E,e=>num(e.montant));
+ files.push({name:`${root}/LISEZ-MOI.txt`,data:[`Dossier comptable – ${month?MOIS[month-1]+' '+ys:'année '+ys}`,`Entreprise : ${S.settings.nom||''}${S.settings.bce?' – BCE '+S.settings.bce:''}`,`Régime : ${S.settings.mention||''}`,`Exporté le ${fd(todayISO())} depuis Ma Déco Pro.`,'',
+  `Chiffre d'affaires facturé (factures – notes de crédit) : ${eur(tFact)}`,`Encaissé : ${eur(tEnc)}`,`Dépenses : ${eur(tDep)}`,st?`Bénéfice (encaissé – dépenses) : ${eur(st.benef)}`:'','',
+  `Contenu : ${nDoc} facture(s)/note(s) de crédit en PDF, ${nRc} reçu(s) en PDF, ${nEx} justificatif(s) de dépense, et les tableaux CSV (s'ouvrent avec Excel).`,
+  miss.length?`\nATTENTION – ${miss.length} dépense(s) sans justificatif (photo ou PDF) :\n`+miss.map(e=>`- ${fd(e.date)} ${e.fournisseur||''} ${eur(e.montant)}`).join('\n'):'Toutes les dépenses ont un justificatif.',
+  '','Classement : '+(month?'1 Factures · 2 Reçus · 3 Dépenses.':'un dossier par mois (1 Factures · 2 Reçus · 3 Dépenses), puis les tableaux de l\'année.')].filter(x=>x!=='').join('\r\n')});
+ return{blob:makeZip(files),name:`${root.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,'-')}.zip`,count:files.length,miss:miss.length}}
+
 function fgListHTML(){const L=fgList();return `<div class="scroll"><table class="t"><tr><th></th><th>Frais</th><th class="r">Montant (€)</th><th>Période</th><th class="r">Par an</th><th></th></tr>${L.map(l=>`<tr style="${l.on===false?'opacity:.5':''}"><td><input type="checkbox" data-chg="fgOn" data-id="${l.id}" ${l.on!==false?'checked':''} aria-label="Concerné"></td>
  <td><input data-inp="fg" data-id="${l.id}" data-f="name" value="${esc(l.name)}" style="min-width:200px"></td><td class="r"><input type="number" inputmode="decimal" step="0.01" data-inp="fg" data-id="${l.id}" data-f="amount" value="${num(l.amount)||''}" placeholder="0" style="width:90px"></td>
  <td><select data-inp="fg" data-id="${l.id}" data-f="period" style="width:auto">${opt('mois','par mois',l.period)}${opt('an','par an',l.period)}</select></td><td class="r" id="fgy-${l.id}">${eur(fgYear(l))}</td><td><button class="sm danger" data-act="delFg" data-id="${l.id}" title="Retirer">✕</button></td></tr>`).join('')}</table></div>`}
 function refreshFg(){$('#fgTot').textContent=eur(fgTotal())+' / an';$('#fgPer').textContent=eur(fgPerEvent());fgList().forEach(l=>{const c=$('#fgy-'+l.id);if(c)c.textContent=eur(fgYear(l))})}
 let fgTimer;const saveSettingsSoon=()=>{clearTimeout(fgTimer);fgTimer=setTimeout(saveSettings,400)};
+function navListHTML(){const o=navOrder();return o.map((v,i)=>{const n=NAV.find(x=>x[0]===v);return `<div class="navrow"><span class="navnum">${i+1}</span><span class="grow">${n[1]} ${n[2]}</span>
+ <button class="sm" data-act="navMove" data-v="${v}" data-to="first" ${i?'':'disabled'} title="Tout au début">⇤</button><button class="sm" data-act="navMove" data-v="${v}" data-to="-1" ${i?'':'disabled'} title="Monter">↑</button><button class="sm" data-act="navMove" data-v="${v}" data-to="1" ${i<o.length-1?'':'disabled'} title="Descendre">↓</button><button class="sm" data-act="navMove" data-v="${v}" data-to="last" ${i<o.length-1?'':'disabled'} title="Tout à la fin (à droite)">⇥</button></div>`}).join('')}
 function vSet(){const s=S.settings;const f=(k,l,t='text',ph='')=>`<label class="f">${l}<input name="${k}" type="${t}" ${t==='number'?'step="any" inputmode="decimal"':''} value="${esc(s[k])}" placeholder="${esc(ph)}"></label>`;
  return `<h2>Réglages</h2><form id="setForm" onsubmit="return false">
  <div class="card"><h3>Mon entreprise (apparaît sur les factures)</h3><div class="grid g2">
@@ -1021,12 +1197,20 @@ function vSet(){const s=S.settings;const f=(k,l,t='text',ph='')=>`<label class="
   <button class="sm" data-act="addFg" style="margin-top:6px">+ Ajouter un frais</button>
   <div class="grid g2" style="margin-top:12px"><label class="f">Nombre d'événements prévus par an<input type="number" inputmode="decimal" step="1" min="1" data-inp="fgN" value="${esc(S.settings.eventsYear)}"></label>
   <div><label>Part des frais généraux par prestation</label><div class="row" style="margin-top:6px"><b id="fgPer" style="font-size:18px">${eur(fgPerEvent())}</b><button class="sm pri" data-act="applyFg">Utiliser dans mes calculs de prix</button></div><small class="muted">Actuellement utilisé : ${eur(S.settings.fraisFixe)}</small></div></div></div>
+ <div class="card"><div class="row between"><h3 style="margin:0">🧭 Ordre du menu</h3><button class="sm" data-act="navReset">Ordre d'origine</button></div>
+  <p class="muted" style="margin:6px 0 10px"><small>Rangez les sections comme vous voulez. Sur téléphone, la 1re est tout à gauche de la barre du bas, la dernière tout à droite ; sur ordinateur, de haut en bas.</small></p>
+  <div id="navList">${navListHTML()}</div></div>
+ <div class="card"><h3>📄 Documents vierges à imprimer</h3><p class="muted" style="margin-top:0"><small>À remplir à la main, par exemple lors d'un rendez-vous chez le client. Vos coordonnées (Réglages) sont imprimées en haut ; si elles ne sont pas encore remplies, des lignes vides les remplacent. Pensez à encoder ensuite le devis et l'acompte dans l'appli pour garder la numérotation et vos comptes à jour.</small></p>
+  <div class="row"><button data-act="blankDevis">📄 Devis vierge (PDF)</button><button data-act="blankRcpt">🧾 Reçu pour acompte vierge (PDF)</button></div></div>
  ${Sync.on?`<div class="card"><h3>☁️ Synchronisation entre appareils</h3>
   <p class="muted" style="margin-top:0">Vos données sont synchronisées automatiquement entre vos appareils (serveur sécurisé en Europe) et gardées aussi sur cet appareil pour fonctionner sans réseau.</p>
   <div class="row"><button data-act="syncInfo">État de la synchronisation</button>${INSTALL.ev?'<button data-act="installApp">📲 Installer l\'appli sur cet appareil</button>':''}</div></div>`:''}
  <div class="card"><h3>Sauvegarde et exports</h3>
   <p class="muted" style="margin-top:0">${Sync.on?'La sauvegarde JSON reste votre <b>copie de secours</b> (photos comprises) : faites-en une de temps en temps et rangez-la sur une clé USB ou Google Drive.':'Vos données sont enregistrées <b>uniquement dans ce navigateur, sur cet appareil</b>. Faites une sauvegarde régulièrement (clé USB, Google Drive…) : elle sert aussi à transférer vos données vers un autre appareil.'}${s.lastBackup?' Dernière sauvegarde : '+fd(s.lastBackup.slice(0,10))+'.':''}</p>
   <div class="row"><button class="pri" data-act="exportBackup">⬇️ Sauvegarder mes données</button><label class="btn" style="margin:0;color:var(--ink)">⬆️ Restaurer une sauvegarde<input type="file" accept=".json,application/json" data-chg="importBackup" hidden></label></div>
+  <h3 style="margin-top:16px">📦 Dossier comptable (tous les documents)</h3>
+  <p class="muted" style="margin:0 0 8px"><small>Un fichier .zip rangé par mois : factures et notes de crédit en PDF, reçus en PDF, photos des tickets et factures d'achat, plus les tableaux Excel (registre, recettes, dépenses, clients assujettis, inventaire) et un récapitulatif. À envoyer à votre comptable ou à garder sur une clé USB.</small></p>
+  <div class="row"><select id="zipYear" style="width:auto">${yearsList().map(y=>opt(y,y,F.year)).join('')}</select><select id="zipMonth" style="width:auto">${opt('','Année complète (12 dossiers mensuels)','')}${MOIS.map((m,i)=>opt(i+1,m,'')).join('')}</select><button class="pri" data-act="exportCompta">📦 Télécharger le dossier</button></div>
   <h3 style="margin-top:16px">Exports pour le comptable (Excel / CSV)</h3>
   <div class="row"><select id="csvYear" style="width:auto">${yearsList().map(y=>opt(y,y,F.year)).join('')}</select>
   <button data-act="csvReg">Registre des factures</button><button data-act="csvRec">Recettes</button><button data-act="csvDep">Dépenses</button><button data-act="csvStock">Inventaire du stock</button></div></div>
@@ -1037,7 +1221,7 @@ function vSet(){const s=S.settings;const f=(k,l,t='text',ph='')=>`<label class="
   <label class="row" style="color:var(--ink);margin-bottom:6px"><input type="checkbox" id="rzExp"> Dépenses et tickets (${S.expenses.length})</label>
   <label class="row" style="color:var(--ink);margin-bottom:10px"><input type="checkbox" id="rzCat"> Catalogue et packs (${S.catalog.length})</label>
   <button class="danger" data-act="resetData">🗑️ Effacer les données cochées</button></div>
- <p class="muted" style="text-align:center"><small>Ma Déco Pro · version 5 · ${Sync.on?'fonctionne hors ligne · synchronisée entre vos appareils':'application hors ligne · données stockées localement'}</small></p>`}
+ <p class="muted" style="text-align:center"><small>Ma Déco Pro · version 7 · ${Sync.on?'fonctionne hors ligne · synchronisée entre vos appareils':'application hors ligne · données stockées localement'}</small></p>`}
 
 /* ================= ACTIONS ================= */
 const dec=n=>String(r2(n)).replace('.',',');
@@ -1221,6 +1405,10 @@ const ACT={
  toggleDlAll:()=>{F.dlAll=!F.dlAll;rerenderKeepScroll()},
  exportIcs:()=>{const r=buildIcs();if(!r.n)return toast('Aucune échéance à venir.');download('echeances-ma-deco-pro.ics',r.text,'text/calendar');
   openModal(`<h2>Ajouter à l'agenda du téléphone</h2><p>Le fichier <b>echeances-ma-deco-pro.ics</b> contient ${r.n} échéance(s), avec un rappel 7 jours avant et la veille à 9 h.</p><ul style="padding-left:18px;line-height:1.6"><li><b>Samsung (Calendrier Samsung)</b> : ouvrez le fichier téléchargé → « Ajouter au calendrier ».</li><li><b>Google Agenda</b> : sur un ordinateur, calendar.google.com → ⚙️ Paramètres → Importer et exporter → Importer ce fichier.</li><li><b>Outlook / iPhone</b> : ouvrez le fichier, puis « Ajouter tout ».</li></ul><p class="muted"><small>Refaites l'export quand vous ajoutez des rappels ou changez votre date de début : les échéances déjà importées sont mises à jour (même identifiant).</small></p><div class="row" style="justify-content:flex-end"><button data-act="closeModal">Fermer</button></div>`)},
+ navMove:async d=>{const o=navOrder(),i=o.indexOf(d.v);o.splice(i,1);const to=d.to==='first'?0:d.to==='last'?o.length:Math.max(0,Math.min(o.length,i+num(d.to)));o.splice(to,0,d.v);S.settings.navOrder=o;await saveSettings();renderNav();$('#navList').innerHTML=navListHTML();render()},
+ navReset:async()=>{S.settings.navOrder=null;await saveSettings();render()},
+ exportCompta:async(d,el)=>{const y=+$('#zipYear').value,m=+$('#zipMonth').value||0;el.disabled=true;const old=el.textContent;el.textContent='⏳ Préparation…';
+  try{const r=await buildCompta(y,m);download(r.name,r.blob);toast(`Dossier téléchargé : ${r.count} fichier(s)`+(r.miss?` · ${r.miss} dépense(s) sans justificatif`:''))}catch(e){console.error(e);alert('Export impossible : '+e.message)}finally{el.disabled=false;el.textContent=old}},
  delLogo:async()=>{S.settings.logo='';await saveSettings();render()},
  exportBackup:async()=>{const data={app:'decoGestion',version:2,exportedAt:new Date().toISOString(),settings:S.settings,clients:S.clients,catalog:S.catalog,expenses:S.expenses,docs:S.docs};
   download(`sauvegarde-deco-${todayISO()}.json`,JSON.stringify(data),'application/json');S.settings.lastBackup=new Date().toISOString();await saveSettings();toast('Sauvegarde téléchargée');render()},
