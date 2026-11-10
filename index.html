@@ -641,7 +641,7 @@ function vDocs(){
 
 /* ================= Document : affichage / impression ================= */
 function docHTML(d){
- const s=S.settings,c=clientById(d.clientId)||{},T=docTotal(d),P=paid(d),title={facture:'FACTURE',devis:'DEVIS',nc:'NOTE DE CRÉDIT'}[d.type];
+ const s=S.settings,c=clientById(d.clientId)||{},T=docTotal(d),P=paid(d),title=d.kind==='acompte'?'FACTURE D\'ACOMPTE':{facture:'FACTURE',devis:'DEVIS',nc:'NOTE DE CRÉDIT'}[d.type];
  const ref=d.type==='nc'?S.docs.find(x=>x.id===d.refInvoice):null,person=[c.prenom,c.nom].filter(Boolean).join(' ');
  const rows=(d.lines||[]).map(l=>`<tr><td>${esc(l.name)}${l.desc?`<small>${esc(l.desc)}</small>`:''}</td><td class="r">${nf(l.qty)} ${esc(l.unit||'')}</td><td class="r">${eur(l.price)}</td><td class="r">${eur(lineTotal(l))}</td></tr>`).join('');
  const comm=d.number?(d.type==='facture'?'Facture '+d.number:d.number):'';
@@ -1174,7 +1174,7 @@ function pdfHeader(P,title,meta,logo){const s=S.settings,M=42;let y=48;
  return Math.max(sy,my,logo?y+60:0)+14}
 function pdfFooter(P){const s=S.settings,t=[s.nom,s.bce?'BCE '+s.bce:'',s.iban?'IBAN '+s.iban:''].filter(Boolean).join(' · ');P.pages.forEach((pg,i)=>{P.cur=pg;P.line(42,808,P.W-42,808,{color:'#eeeeee'});P.text(P.W/2,820,t,{size:8,color:'#888888',align:'center'});if(P.pages.length>1)P.text(P.W-42,820,`${i+1}/${P.pages.length}`,{size:8,color:'#888888',align:'right'})})}
 async function docPDF(d){const s=S.settings,c=clientById(d.clientId)||{},T=docTotal(d),Pd=paid(d),P=new MiniPDF(),M=42,RX=P.W-M,logo=await logoJpeg();
- const ref=d.type==='nc'?S.docs.find(x=>x.id===d.refInvoice):null,title={facture:'FACTURE',devis:'DEVIS',nc:'NOTE DE CRÉDIT'}[d.type];
+ const ref=d.type==='nc'?S.docs.find(x=>x.id===d.refInvoice):null,title=d.kind==='acompte'?'FACTURE D\'ACOMPTE':{facture:'FACTURE',devis:'DEVIS',nc:'NOTE DE CRÉDIT'}[d.type];
  const meta=[['N°',d.number||'—'],['Date',fd(d.date)]];if(d.type==='facture'&&d.dueDate)meta.push(['Échéance',fd(d.dueDate)]);if(d.type==='devis'&&d.validUntil)meta.push(['Valable jusqu\'au',fd(d.validUntil)]);if(ref)meta.push(['Facture annulée',ref.number]);
  let y=pdfHeader(P,title,meta,logo);
  const cl=[clientName(c),c.societe&&(c.prenom||c.nom)?[c.prenom,c.nom].filter(Boolean).join(' '):'',c.adresse,[c.cp,c.ville].filter(Boolean).join(' '),c.tva?'N° TVA : '+c.tva:''].filter(Boolean);
@@ -1743,10 +1743,10 @@ ACT.expDelPage=d=>{const i=+d.i;TMP.more=TMP.more||[];if(i===0){TMP.file=TMP.mor
 {const _v=ACT.viewFile;ACT.viewFile=d=>{const x=S.expenses.find(z=>z.id===d.id);if(!x||!x.files||!x.files.length)return _v(d);const P=[x.file,...x.files].filter(Boolean);
  openModal(`<h2>${esc(x.fournisseur||'Ticket')} · ${P.length} pages</h2>${P.map((g,i)=>g.type.startsWith('image')?`<img class="preview-img" src="${g.data}" alt="Page ${i+1}" style="margin-bottom:10px">`:`<p>📄 ${esc(g.name||'PDF')}</p>`).join('')}<div class="row" style="justify-content:flex-end"><button data-act="closeModal">Fermer</button></div>`)}}
 /* --- 3. Plus de section « Matériel » ; 4 et 6. Échéances dans le tableau de bord ; Devis et Factures séparés --- */
-{const i=NAV.findIndex(n=>n[0]==='docs');if(i>=0)NAV.splice(i,1,['devis','📝','Devis'],['fact','🧾','Factures']);for(const k of['mat','agenda']){const j=NAV.findIndex(n=>n[0]===k);if(j>=0)NAV.splice(j,1)}}
-{const _o=navOrder;navOrder=function(){const raw=S.settings.navOrder||[];if(raw.includes('docs')){const i=raw.indexOf('docs');S.settings.navOrder=raw.slice(0,i).concat(['devis','fact'],raw.slice(i+1)).filter(v=>v!=='mat'&&v!=='agenda')}return _o()}}
+{const i=NAV.findIndex(n=>n[0]==='docs');if(i>=0)NAV.splice(i,1,['devis','📝','Devis'],['fact','🧾','Factures'],['rcpt','💶','Reçus']);for(const k of['mat','agenda']){const j=NAV.findIndex(n=>n[0]===k);if(j>=0)NAV.splice(j,1)}}
+{const _o=navOrder;navOrder=function(){let raw=S.settings.navOrder||[];if(raw.includes('fact')&&!raw.includes('rcpt')){const j=raw.indexOf('fact');raw=S.settings.navOrder=raw.slice(0,j+1).concat(['rcpt'],raw.slice(j+1))}if(raw.includes('docs')){const i=raw.indexOf('docs');S.settings.navOrder=raw.slice(0,i).concat(['devis','fact','rcpt'],raw.slice(i+1)).filter(v=>v!=='mat'&&v!=='agenda')}return _o()}}
 F.dk=F.dk||'devis';
-{const _g=go;go=function(v,p){if(v==='devis'||v==='fact'){F.dk=v;F.docs=v==='devis'?'devis':'facture';v='docs'}else if(v==='docs'&&PARAM&&VIEW==='doc'){const x=S.docs.find(z=>z.id===PARAM);if(x){F.dk=x.type==='devis'?'devis':'fact';F.docs=F.dk==='devis'?'devis':'facture'}}_g(v,p)}}
+{const _g=go;go=function(v,p){if(v==='devis'||v==='fact'||v==='rcpt'){F.dk=v;F.docs=v==='devis'?'devis':'facture';v='docs'}else if(v==='docs'&&PARAM&&VIEW==='doc'){const x=S.docs.find(z=>z.id===PARAM);if(x){F.dk=x.type==='devis'?'devis':'fact';F.docs=F.dk==='devis'?'devis':'facture'}}_g(v,p)}}
 {const _v=vDocs;vDocs=function(){const dv=F.dk==='devis';if(dv)F.docs='devis';else if(!['facture','due','draftF'].includes(F.docs))F.docs='facture';
  let h=_v().replace('<h2>Devis & factures</h2>',`<h2>${dv?'Devis':'Factures'}</h2>`);
  h=dv?h.replace(/<button class="pri" data-act="newDoc" data-t="facture">\+ Facture<\/button>/,'').replace('<button data-act="newDoc" data-t="devis">+ Devis</button>','<button class="pri" data-act="newDoc" data-t="devis">+ Nouveau devis</button>')
@@ -1755,7 +1755,7 @@ F.dk=F.dk||'devis';
  return h.replace(/<div class="chips">[\s\S]*?<\/div>/,ch.length?`<div class="chips">${ch.map(c=>`<button class="chip ${F.docs===c[0]?'on':''}" data-act="docFilter" data-f="${c[0]}">${c[1]}</button>`).join('')}</div>`:'')}}
 {const _l=docListHTML;docListHTML=function(){if(F.docs!=='draftF')return _l();const all=S.docs;S.docs=all.filter(d=>d.type!=='devis');F.docs='draft';try{return _l()}finally{S.docs=all;F.docs='draftF'}}}
 {const _r=render;render=function(){if(VIEW==='doc'){const x=S.docs.find(z=>z.id===PARAM);if(x)F.dk=x.type==='devis'?'devis':'fact'}else if(VIEW==='editor'&&ED)F.dk=ED.type==='devis'?'devis':'fact';_r();
- if(['docs','doc','editor'].includes(VIEW)){document.querySelectorAll('#nav button').forEach(b=>{if(b.dataset.view==='devis'||b.dataset.view==='fact')b.classList.toggle('on',b.dataset.view===F.dk)});const pl=document.querySelector('#nav [data-view="__plus"]');if(pl)pl.classList.toggle('on',!navOrder().slice(0,UXN).includes(F.dk)&&uxMobile())}}}
+ if(['docs','doc','editor'].includes(VIEW)){document.querySelectorAll('#nav button').forEach(b=>{if(b.dataset.view==='devis'||b.dataset.view==='fact'||b.dataset.view==='rcpt')b.classList.toggle('on',b.dataset.view===F.dk)});const pl=document.querySelector('#nav [data-view="__plus"]');if(pl)pl.classList.toggle('on',!navOrder().slice(0,UXN).includes(F.dk)&&uxMobile())}}}
 /* tableau de bord : un seul bouton « Échéances », rouge à l'approche */
 function dlTile(){const t=todayISO(),L=deadlines().filter(x=>!dlDone()[x.key]&&x.cat!=='client'),late=L.filter(x=>x.date<t&&x.date>=addDays(t,-120)&&!x.optional),soon=L.filter(x=>x.date>=t&&x.date<=addDays(t,7)),next=L.filter(x=>x.date>=t).sort((a,b)=>a.date.localeCompare(b.date))[0];
  const lvl=late.length||soon.length?'red':next&&next.date<=addDays(t,30)?'orange':'green';
@@ -1796,6 +1796,88 @@ ACT.rcptDl=async d=>{const x=S.docs.find(z=>z.id===d.id),p=x&&(x.payments||[]).f
 .dlt{display:flex;align-items:center;gap:12px;width:100%;text-align:left;padding:14px;border-radius:var(--radius);margin:0 0 14px;border:2px solid;font:inherit;cursor:pointer}.dlt b{display:block;font-size:16px}.dlt small{display:block;margin-top:2px}.dli{font-size:28px}.dlc{font-size:24px;opacity:.6}
 .dlt-red{background:#fdecea;border-color:#c0392b;color:#8e2a1f}.dlt-orange{background:#fdf1e4;border-color:#d9822b;color:#8a4f12}.dlt-green{background:#e9f5ee;border-color:#2e8b57;color:#1d5e3a}
 .acc8{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.accb{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 4px;border-radius:10px;min-height:0}.accb span{width:34px;height:34px;border-radius:50%}.accb small{font-size:11px}.accb.on{border:2px solid var(--ink)}`;document.head.appendChild(st)}
+/* ================= v10 : Devis et Factures en consultation simple, Nouveau devis / Nouvelle facture guidés, factures d'acompte et totales, section Reçus, acompte payé à la réservation ================= */
+/* --- l'acompte se paie à la réservation : plus de date limite d'acompte sur les documents ni de rappel --- */
+{const _h=docHTML;docHTML=function(d){return _h({...d,acompteDue:''})}}
+{const _s=docStatus;docStatus=function(d){return _s({...d,acompteDue:''})}}
+payItems=function(){const out=[];S.docs.filter(isLiveInvoice).forEach(d=>{const rest=r2(docTotal(d).total-paid(d));if(rest>0.005&&d.dueDate)out.push({d,kind:'solde',date:d.dueDate,amount:rest,key:'so-'+d.id})});return out.sort((a,b)=>a.date.localeCompare(b.date))};
+{const _b=blankDoc;blankDoc=function(t,c){const d=_b(t,c);d.acompteDue='';return d}}
+{const _e=vEditor;vEditor=function(){return _e().replace(/<label class="f">Acompte \([^)]*\) à payer avant le<input[^>]*><\/label>/,'')}}
+/* --- états simplifiés --- */
+const dvState=d=>{const k=docStatus(d).k;return{draft:['Brouillon','grey'],pend:['N° en attente','grey'],iss:['En attente','orange'],sent:['En attente','orange'],acc:['Validé par le client','green'],ref:['Refusé','red'],exp:['Expiré','grey'],fact:['Facturé','blue']}[k]||[docStatus(d).l,docStatus(d).c]};
+const ftState=d=>{if(d.type==='nc')return['Note de crédit','grey'];if(!d.number)return[pendingNum(d)?'N° en attente':'Brouillon','grey'];if(d.creditId)return['Annulée','grey'];return paid(d)>=docTotal(d).total-0.005?['Payée','green']:['Non payée','red']};
+const ftKind=d=>d.type==='nc'?'Note de crédit':d.kind==='acompte'?'Facture d’acompte':'Facture totale';
+const isPaidF=d=>d.type==='facture'&&issued(d)&&!d.creditId&&paid(d)>=docTotal(d).total-0.005;
+const DF={devis:[['all','Tous'],['wait','En attente'],['ok','Validés'],['done','Facturés']],fact:[['all','Toutes'],['unpaid','Non payées'],['paid','Payées']],rcpt:[['all','Tous'],['ac','Acomptes'],['so','Soldes']]};
+ACT.dfFilter=d=>{F.df=d.f;render()};
+{const _l=docListHTML;docListHTML=function(){if(VIEW!=='docs'||!['devis','fact'].includes(F.dk))return _l();const dv=F.dk==='devis',q=norm(F.docQ),f=F.df||'all';
+ let L=S.docs.filter(d=>dv?d.type==='devis':d.type==='facture'||d.type==='nc');
+ if(dv){if(f==='wait')L=L.filter(d=>['iss','sent','pend','draft'].includes(docStatus(d).k));if(f==='ok')L=L.filter(d=>docStatus(d).k==='acc');if(f==='done')L=L.filter(d=>d.invoiceId)}
+ else{if(f==='paid')L=L.filter(isPaidF);if(f==='unpaid')L=L.filter(d=>d.type==='facture'&&issued(d)&&!d.creditId&&!isPaidF(d))}
+ if(q)L=L.filter(d=>norm(cname(d.clientId)+' '+(d.number||'')+' '+(d.eventPlace||'')).includes(q));
+ L.sort((a,b)=>(b.date||'').localeCompare(a.date||'')||(b.created||0)-(a.created||0));
+ if(!L.length)return empty(dv?'Aucun devis ici.':'Aucune facture ici.');
+ return `<div class="list">${L.map(d=>{const st=dv?dvState(d):ftState(d);return `<div class="it sdoc" data-go="${issued(d)?'doc':'docEdit'}" data-p="${d.id}">
+  <div class="grow"><div class="t">${esc(d.number||(dv?'Devis brouillon':'Facture brouillon'))}</div><small class="muted">${esc(cname(d.clientId))}${dv?'':' · '+ftKind(d)}</small></div>
+  <span class="badge b-${st[1]}">${st[0]}</span><span class="dlc">›</span></div>`}).join('')}</div>`}}
+{const _v=vDocs;vDocs=function(){if(!['devis','fact','rcpt'].includes(F.dk))return _v();const k=F.dk;if(!DF[k].some(c=>c[0]===F.df))F.df='all';
+ if(k==='rcpt')return vRcpt();const dv=k==='devis';
+ return `<h2>${dv?'Devis':'Factures'}</h2><p class="muted" style="margin:-6px 0 10px"><small>${dv?'Vos devis et leur état. Pour en faire un nouveau : <b>Nouveau devis</b> sur le tableau de bord.':'Vos factures et leur paiement. Pour en faire une : <b>Nouvelle facture</b> sur le tableau de bord.'} Touchez une ligne pour voir le détail.</small></p>
+ <div class="chips">${DF[k].map(c=>`<button class="chip ${F.df===c[0]?'on':''}" data-act="dfFilter" data-f="${c[0]}">${c[1]}</button>`).join('')}</div>
+ <input placeholder="🔍 Rechercher un client, un numéro…" data-inp="docQ" value="${esc(F.docQ)}" style="margin-bottom:12px">
+ <div class="card" id="docList">${docListHTML()}</div>`}}
+/* --- Reçus : tous les acomptes et soldes encaissés --- */
+const isAcPay=x=>!!(x.p.acompte||x.p.qid||x.d.type==='devis'||x.d.kind==='acompte');
+function vRcpt(){const all=allPayments().sort((a,b)=>(b.p.date||'').localeCompare(a.p.date||'')||(b.p.rcpt||'').localeCompare(a.p.rcpt||''));const y=String(new Date().getFullYear());
+ let L=all;if(F.df==='ac')L=L.filter(isAcPay);if(F.df==='so')L=L.filter(x=>!isAcPay(x));
+ const q=norm(F.docQ);if(q)L=L.filter(x=>norm(cname(x.d.clientId)+' '+(x.p.rcpt||'')+' '+(x.d.number||'')).includes(q));
+ const tY=sum(all.filter(x=>(x.p.date||'').startsWith(y)),x=>num(x.p.amount));
+ return `<h2>Reçus</h2><p class="muted" style="margin:-6px 0 10px"><small>Tous les acomptes et soldes que vous avez reçus. Touchez « Reçu » pour télécharger le reçu en PDF.</small></p>
+ <div class="card row between"><span>Encaissé en ${y}</span><b class="amount">${eur(tY)}</b></div>
+ <div class="chips">${DF.rcpt.map(c=>`<button class="chip ${F.df===c[0]?'on':''}" data-act="dfFilter" data-f="${c[0]}">${c[1]}</button>`).join('')}</div>
+ <input placeholder="🔍 Rechercher un client, un n° de reçu…" data-inp="rcQ" value="${esc(F.docQ)}" style="margin-bottom:12px">
+ <div class="card">${L.length?`<div class="list">${L.map(x=>`<div class="it"><div class="thumb">${isAcPay(x)?'🧾':'💶'}</div><div class="grow"><div class="t">${esc(cname(x.d.clientId))}</div><small class="muted">${isAcPay(x)?'Acompte':'Solde'} · ${fd(x.p.date)}${x.p.mode?' · '+esc(x.p.mode):''}<br>${esc(TYPE_L[x.d.type])} ${esc(dnum(x.d))}${x.p.rcpt?' · '+esc(x.p.rcpt):''}</small></div>
+  <div style="text-align:right"><div class="amount">${eur(x.p.amount)}</div><button class="sm" data-act="rcptDl" data-id="${x.d.id}" data-pid="${x.p.id}">📄 Reçu</button></div></div>`).join('')}</div>`:empty('Aucun paiement reçu pour le moment.')}</div>`}
+INP.rcQ=t=>{F.docQ=t.value;const y=window.scrollY,pos=t.selectionStart;render();window.scrollTo(0,y);const n=document.querySelector('[data-inp="rcQ"]');if(n){n.focus();try{n.setSelectionRange(pos,pos)}catch(e){}}};
+/* --- Nouveau devis : vierge ou depuis une photo ; Nouvelle facture : depuis un devis validé ou vierge --- */
+{const _n=ACT.newDoc;ACT.newDoc=d=>{if(d.direct||d.c||(d.t!=='devis'&&d.t!=='facture'))return(closeModal(),_n(d));openModal(d.t==='devis'?nvDevis():nvFact())}}
+function nvDevis(){return `<div class="row between"><h2 style="margin:0">📝 Nouveau devis</h2><button class="sm" data-act="closeModal">Fermer</button></div>
+ <div class="nvc"><button data-act="newDoc" data-t="devis" data-direct="1"><span>✍️</span><b>Devis vierge</b><small>Je choisis le client et les articles.</small></button>
+ ${Sync.on?`<label class="btn"><span>📷</span><b>Devis depuis une photo</b><small>Photo d’une demande ou d’une commande : l’appli remplit le devis.</small><input type="file" accept="image/*" capture="environment" data-chg="devisPhoto" hidden></label>`:`<button disabled><span>📷</span><b>Devis depuis une photo</b><small>Disponible une fois l’appli connectée (synchronisation activée).</small></button>`}</div>`}
+const okQuotes=()=>S.docs.filter(d=>d.type==='devis'&&issued(d)&&d.decision==='accepte'&&!d.invoiceId).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+function nvFact(){const Q=okQuotes();return `<div class="row between"><h2 style="margin:0">🧾 Nouvelle facture</h2><button class="sm" data-act="closeModal">Fermer</button></div>
+ <h3 style="margin:14px 0 6px">Depuis un devis validé par le client</h3>
+ ${Q.length?Q.map(q=>{const ai=q.acompteInvoiceId&&S.docs.find(x=>x.id===q.acompteInvoiceId);return `<div class="nvq"><div><b>${esc(dnum(q))}</b> · ${esc(cname(q.clientId))}<br><small class="muted">${eur(docTotal(q).total)}${q.eventDate?' · événement '+fd(q.eventDate):''}${ai?' · acompte facturé ('+esc(dnum(ai))+')':''}</small></div>
+  <div class="row">${acPct(q)>0&&!ai?`<button class="sm" data-act="nfAc" data-id="${q.id}">Facture d’acompte (${acPct(q)} %)</button>`:''}<button class="sm pri" data-act="nfTot" data-id="${q.id}">Facture totale</button></div></div>`}).join('')
+ :`<div class="muted" style="padding:6px 0">Aucun devis validé pour le moment. Quand un client accepte un devis, ouvrez-le dans <b>Devis</b> et touchez « ✅ Accepté » : il apparaîtra ici.</div>`}
+ <div class="row" style="justify-content:flex-end;margin-top:14px;border-top:1px solid var(--line);padding-top:12px"><button data-act="newDoc" data-t="facture" data-direct="1">✍️ Facture vierge (sans devis)</button></div>`}
+ACT.nfAc=d=>{closeModal();return ACT.toAcInvoice(d)};
+ACT.nfTot=d=>{closeModal();return ACT.toInvoice(d)};
+/* facture d'acompte : une ligne « Acompte de X % sur le devis », reprend les acomptes déjà reçus */
+ACT.toAcInvoice=async d=>{const q=S.docs.find(z=>z.id===d.id);if(!q)return;const amt=acompteMt(q);if(amt<=0)return toast('Aucun acompte prévu sur ce devis.');
+ const f=blankDoc('facture',q.clientId);Object.assign(f,{kind:'acompte',acFromQuote:q.id,eventDate:q.eventDate,eventPlace:q.eventPlace,acompteDue:'',acomptePct:0,dueDate:todayISO(),remise:0,notes:'',
+  lines:[{id:uid(),kind:'free',name:`Acompte de ${acPct(q)} % sur le devis ${dnum(q)}`,desc:q.eventDate?'Réservation de l’événement du '+fd(q.eventDate)+(q.eventPlace?' – '+q.eventPlace:''):'Réservation',unit:'',qty:1,price:amt}]});
+ const P=q.payments||[];if(P.length){f.payments=P.map(p=>({...p,qid:q.id}));q.payments=[]}
+ q.decision='accepte';q.acompteInvoiceId=f.id;await save('docs',q);await save('docs',f);ED=clone(f);VIEW='editor';F.dk='fact';render();window.scrollTo(0,0);toast('Facture d’acompte créée en brouillon : vérifiez puis émettez-la.')};
+/* facture totale : l'acompte déjà facturé est déduit */
+{const _t=ACT.toInvoice;ACT.toInvoice=async d=>{await _t(d);const q=S.docs.find(z=>z.id===d.id);if(!q||!q.acompteInvoiceId)return;const ai=S.docs.find(x=>x.id===q.acompteInvoiceId),f=S.docs.find(x=>x.id===q.invoiceId);if(!ai||!f)return;
+ const r=num(f.remise),A=docTotal(ai).total,line={id:uid(),kind:'free',name:`Acompte déjà facturé (facture ${dnum(ai)})`,desc:'',unit:'',qty:1,price:-r2(A/(1-(r<100?r:0)/100))};
+ f.lines.push(line);f.acomptePct=0;f.acompteDue='';await save('docs',f);if(ED&&ED.id===f.id){ED.lines.push(clone(line));ED.acomptePct=0;ED.acompteDue=''}render()}}
+/* page d'un devis / d'une facture */
+{const _x=ACT.delDoc;ACT.delDoc=async d=>{const x=S.docs.find(z=>z.id===d.id),P=clone((x&&x.payments)||[]),qa=x&&x.acFromQuote;await _x(d);if(!x||S.docs.some(z=>z.id===d.id))return;
+ const ids=new Set(P.filter(p=>p.qid).map(p=>p.qid));if(qa)ids.add(qa);for(const id of ids){const q=S.docs.find(z=>z.id===id);if(!q)continue;if(q.acompteInvoiceId===d.id)q.acompteInvoiceId='';
+  const back=P.filter(p=>p.qid===id).map(p=>{const n={...p};delete n.qid;return n});if(back.length)q.payments=(q.payments||[]).concat(back);await save('docs',q)}if(ids.size)render()}}
+{const _d=vDoc;vDoc=function(){let h=_d();const d=S.docs.find(z=>z.id===PARAM);if(!d)return h;
+ if(d.type==='facture'&&d.kind==='acompte'){h=h.replace(/<h2 style="margin:0">Facture /,'<h2 style="margin:0">Facture d’acompte ');if(d.acFromQuote)h=h.replace('<div class="row" style="margin-bottom:14px">',`<div class="row" style="margin-bottom:14px"><button data-go="doc" data-p="${d.acFromQuote}">Voir le devis</button>`)}
+ if(d.type==='devis'&&!d.invoiceId){h=h.replace('➡️ Transformer en facture','➡️ Facture totale');const ai=d.acompteInvoiceId&&S.docs.find(x=>x.id===d.acompteInvoiceId);
+  if(ai)h=h.replace('<button data-act="toInvoice"',`<button data-go="${issued(ai)?'doc':'docEdit'}" data-p="${ai.id}">Voir la facture d’acompte</button><button data-act="toInvoice"`);
+  else if(acPct(d)>0)h=h.replace('<button data-act="toInvoice"',`<button data-act="toAcInvoice" data-id="${d.id}">🧾 Facture d’acompte</button><button data-act="toInvoice"`)}
+ if(d.type==='facture'&&issued(d)&&(d.payments||[]).length)h=h.replace(/(<td class="r"><button class="sm link danger" data-act="delPayment" data-id="[^"]+" data-pid="([^"]+)">supprimer<\/button><\/td>)/g,(m,a,pid)=>`<td class="r"><button class="sm" data-act="rcptDl" data-id="${d.id}" data-pid="${pid}">📄 Reçu</button></td>`+a);
+ return h}}
+{const st=document.createElement('style');st.textContent=`
+.sdoc{align-items:center;gap:10px}.sdoc .t{font-weight:700}.sdoc .badge{white-space:nowrap}.sdoc .dlc{font-size:22px;color:var(--muted)}
+.nvc{display:grid;gap:10px;margin-top:14px}.nvc>button,.nvc>label{display:grid;grid-template-columns:44px 1fr;grid-template-rows:auto auto;align-items:center;text-align:left;gap:0 10px;padding:14px;border-radius:var(--radius);margin:0;color:var(--ink);cursor:pointer;min-height:0}.nvc span{grid-row:1/3;font-size:30px}.nvc small{color:var(--muted);font-weight:400}.nvc>button:first-child{border:2px solid var(--accent)}.nvc>button:disabled{opacity:.55}
+.nvq{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px;padding:10px 0;border-top:1px solid var(--line)}`;document.head.appendChild(st)}
 /* ================= Démarrage ================= */
 async function loadLocal(){const st=await DB.all('settings');
  for(const s of ['clients','catalog','expenses','docs'])S[s]=await DB.all(s);
