@@ -1800,6 +1800,61 @@ ACT.setAccent=async d=>{S.settings.accent=d.c;await saveSettings();applyAccent()
 .dlt-red{background:#fdecea;border-color:#c0392b;color:#8e2a1f}.dlt-orange{background:#fdf1e4;border-color:#d9822b;color:#8a4f12}.dlt-green{background:#e9f5ee;border-color:#2e8b57;color:#1d5e3a}
 .acc8{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.accb{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 4px;border-radius:10px;min-height:0}.accb span{width:34px;height:34px;border-radius:50%}.accb small{font-size:11px}.accb.on{border:2px solid var(--ink)}`;document.head.appendChild(st)}
 
+/* ================= v11 : fiche de commande et facture d'acompte vierges à imprimer, à remplir à la main puis à photographier ================= */
+const blankNote=t=>`<div class="inv-cond pnote"><small>📷 ${t}</small></div>`;
+function blankOrderHTML(){const rows=Array.from({length:12},()=>'<tr><td>&nbsp;</td><td></td><td></td></tr>').join('');
+ return blankDevisHTML().replace('<div class="inv-title">DEVIS</div>','<div class="inv-title">FICHE DE COMMANDE</div>')
+  .replace(/<tr><td>N°<\/td><td>[\s\S]*?<\/td><\/tr>/,'').replace(/<tr><td>Valable jusqu'au<\/td><td>[\s\S]*?<\/td><\/tr>/,'')
+  .replace(/(<table class="lines lgrid">[\s\S]*?<\/th><\/tr>)[\s\S]*?(<\/table>)/,(m,a,b)=>a+rows+b)
+  .replace('Bon pour accord<br>Date et signature du client :','Date et signature du client :')
+  .replace(/(<div class="inv-mention">)/,blankNote('Une fois remplie, photographiez cette fiche dans l’appli : <b>Nouveau devis › Depuis une photo</b>. Le devis officiel (numéroté) est fait par l’appli.')+'$1')}
+function blankAcHTML(){const s=S.settings,pct=num(s.acompte);
+ return `<div class="inv blank"><div class="inv-top">${sellerHTML()}<div class="inv-meta"><div class="inv-title">FACTURE D'ACOMPTE</div><table><tr><td>N°</td><td>${bl('36mm')}</td></tr><tr><td>Date</td><td>${bl('36mm')}</td></tr><tr><td>Devis n°</td><td>${bl('36mm')}</td></tr></table></div></div>
+ <div class="cbox"><div class="lbl">Client facturé</div>${fl('Nom :')}${fl('Adresse :')}${fl('Tél. :','E-mail :')}${fl('N° TVA (si entreprise) :')}</div>
+ <div class="cbox"><div class="lbl">Événement réservé</div>${fl('Type :','Date :')}${fl('Lieu :')}</div>
+ <table class="lines lgrid"><tr><th style="width:68%">Désignation</th><th class="r" style="width:32%">Montant</th></tr>
+  <tr><td>Acompte de ${pct?pct:bl('10mm')} % à la réservation, sur le devis n° ${bl('30mm')}<br><small>Montant total de la prestation : ${bl('28mm')} €</small></td><td class="r">${bl('26mm')} €</td></tr></table>
+ <div class="endrow"><div class="sigl">Payé le ${bl('30mm')}<br><span class="cks">☐ Espèces &nbsp; ☐ Virement &nbsp; ☐ Payconiq &nbsp; ☐ Carte</span></div><table class="inv-tot bt"><tr class="big"><td>Total à payer</td><td>${bl('26mm')} €</td></tr></table></div>
+ ${s.iban?`<div class="inv-pay">Acompte à régler à la réservation, par virement sur le compte <b>${esc(s.iban)}</b>${s.bic?' (BIC '+esc(s.bic)+')':''}, avec la communication : facture n° ${bl('30mm')}.</div>`:''}
+ <div class="inv-mention">${esc(s.mention||'Régime particulier de franchise des petites entreprises')}</div>
+ <div class="inv-cond"><small>Cet acompte confirme la réservation de la date. Il sera déduit de la facture totale.</small></div>
+ ${blankNote('Photographiez ensuite cette facture dans l’appli : <b>Nouvelle facture › Facture d’acompte depuis une photo</b>, pour qu’elle soit encodée (numérotation et comptes à jour).')}
+ ${footHTML()}</div>`}
+ACT.blankDevis=()=>{closeModal();printHTML(blankDevisHTML(),'Devis vierge')};
+ACT.blankRcpt=()=>{closeModal();printHTML(blankRcptHTML(),'Reçu pour acompte vierge')};
+ACT.blankOrder=()=>{closeModal();printHTML(blankOrderHTML(),'Fiche de commande vierge')};
+ACT.blankAc=()=>{closeModal();printHTML(blankAcHTML(),'Facture d’acompte vierge')};
+/* boutons dans « Nouveau devis », « Nouvelle facture » et Réglages */
+const pBtn=(act,t,sub)=>`<button class="pbtn" data-act="${act}"><span>🖨️</span><b>${t}</b><small class="muted">${sub}</small></button>`;
+{const _n=ACT.newDevis;ACT.newDevis=(...a)=>{_n(...a);const g=document.querySelector('#modalBody .grid');if(g)g.insertAdjacentHTML('afterend',`<div class="pblk">${pBtn('blankOrder','Imprimer une fiche de commande vierge','À remplir à la main avec le client, puis à photographier ici (« Depuis une photo »).')}</div>`)}}
+{const _n=ACT.newFacture;ACT.newFacture=(...a)=>{_n(...a);const b=document.querySelector('#modalBody');if(!b)return;const r=[...b.querySelectorAll(':scope > .row')].pop();
+ const h=`<div class="pblk"><h3 style="margin:14px 0 8px">Facture d’acompte sur papier</h3>${pBtn('blankAc','Imprimer une facture d’acompte vierge','À remplir à la main lors de la réservation.')}
+ ${Sync.on?`<label class="btn pbtn"><span>📷</span><b>Facture d’acompte depuis une photo</b><small class="muted">Photo de la facture remplie à la main : l’appli prépare la facture d’acompte.</small><input type="file" accept="image/*" capture="environment" data-chg="acPhoto" hidden></label>`:`<button class="pbtn" disabled><span>📷</span><b>Facture d’acompte depuis une photo</b><small class="muted">Disponible quand l’appli est connectée (synchronisation activée).</small></button>`}</div>`;
+ if(r)r.insertAdjacentHTML('beforebegin',h);else b.insertAdjacentHTML('beforeend',h)}}
+{const _s=vSet;vSet=function(){return _s().replace('<button data-act="blankDevis">📄 Devis vierge (PDF)</button>','<button data-act="blankOrder">📝 Fiche de commande vierge</button><button data-act="blankDevis">📄 Devis vierge</button><button data-act="blankAc">🧾 Facture d’acompte vierge</button>').replace('🧾 Reçu pour acompte vierge (PDF)','💶 Reçu pour acompte vierge')}}
+/* photo d'une facture d'acompte remplie à la main → facture d'acompte en brouillon */
+const findQuoteNum=t=>{const m=String(t||'').match(/D-\d{4}-\d{1,4}/gi)||[];for(const x of m){const q=S.docs.find(d=>d.type==='devis'&&d.number&&d.number.toUpperCase()===x.toUpperCase());if(q)return q}return null};
+async function acFromPhoto(img){const x=await devisFromPhoto(img),d=x.d,txt=[d.notes,...d.lines.map(l=>l.name+' '+(l.desc||''))].join(' ');
+ const f=blankDoc('facture',d.clientId);f.kind='acompte';f.eventDate=d.eventDate;f.eventPlace=d.eventPlace;f.notes='';
+ f.lines=d.lines.map(l=>({id:uid(),kind:'free',name:l.name,desc:l.desc||'',unit:'',qty:num(l.qty)||1,price:r2(num(l.price))}));
+ let q=findQuoteNum(txt);if(!q&&d.clientId){const L=S.docs.filter(z=>z.type==='devis'&&issued(z)&&z.clientId===d.clientId&&!quoteInvoices(z).length);if(L.length===1)q=L[0]}
+ if(q){f.fromQuote=q.id;f.acomptePct=acPct(q);if(!f.clientId)f.clientId=q.clientId;if(!f.eventDate)f.eventDate=q.eventDate;if(!f.eventPlace)f.eventPlace=q.eventPlace;
+  if(!f.lines.length||!f.lines.some(l=>num(l.price)))f.lines=[{id:uid(),kind:'free',name:`Acompte de ${acPct(q)} % – réservation${q.eventDate?' du '+fd(q.eventDate):''}`,desc:`Selon devis ${dnum(q)}`,unit:'',qty:1,price:acompteMt(q)}]}
+ if(!f.lines.length)f.lines=[{id:uid(),kind:'free',name:'Acompte à la réservation',desc:'',unit:'',qty:1,price:0}];
+ return{f,q,client:x.client,isNew:x.isNew,doutes:x.doutes}}
+CHG.acPhoto=async t=>{const file=t.files[0];t.value='';if(!file)return;
+ if(navigator.onLine===false)return toast('Pas de réseau : la lecture demande une connexion Internet.');
+ openModal('<h2>📷 Lecture de la facture d’acompte…</h2><p class="muted">Quelques secondes : l’appli lit le client, le devis et le montant.</p>');
+ try{const img=await compressImage(file,1600,0.8),x=await acFromPhoto(img);closeModal();
+  if(x.q){x.q.decision='accepte';x.q.acompteId=x.f.id;await save('docs',x.q)}await save('docs',x.f);
+  ED=clone(x.f);VIEW='editor';F.pickQ='';render();window.scrollTo(0,0);
+  alert(['Facture d’acompte préparée à partir de la photo : vérifiez le montant, puis émettez-la pour lui donner son numéro officiel.',
+   x.q?`Liée au devis ${dnum(x.q)}.`:'Aucun devis trouvé : elle n’est liée à aucun devis.',
+   x.client?(x.isNew?`Nouveau client créé : ${clientName(x.client)} (vérifiez sa fiche).`:`Client reconnu : ${clientName(x.client)}.`):'Client non trouvé : choisissez-le dans la liste.',
+   x.f.lines.some(l=>!num(l.price))?'Le montant n’a pas été lu : complétez-le.':'',x.doutes?'À vérifier : '+x.doutes:''].filter(Boolean).join('\n\n'))}
+ catch(e){openModal(`<h2>Lecture impossible</h2><p>${esc(e.message)}</p><div class="row" style="justify-content:flex-end"><button data-act="closeModal">Fermer</button></div>`)}};
+{const st=document.createElement('style');st.textContent=`.pblk{display:grid;gap:8px;margin-top:10px}.pbtn{display:grid;grid-template-columns:34px 1fr;align-items:center;text-align:left;gap:0 8px;padding:12px;margin:0;min-height:0;border-radius:var(--radius);color:var(--ink)}.pbtn span{grid-row:1/3;font-size:24px}.pbtn small{font-weight:400}.pbtn:disabled{opacity:.55}
+@media print{.pnote{display:block}}`;document.head.appendChild(st)}
 /* ================= Démarrage ================= */
 async function loadLocal(){const st=await DB.all('settings');
  for(const s of ['clients','catalog','expenses','docs'])S[s]=await DB.all(s);
