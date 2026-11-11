@@ -217,6 +217,7 @@ body.locked{padding-left:0!important}
  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
 .ctag{display:inline-block;vertical-align:middle;font-size:11px;font-weight:700;line-height:1;padding:3px 7px;border-radius:99px;white-space:nowrap}.ctag.big{font-size:13px;padding:5px 10px}.ct-pro{background:#e3ecf9;color:#24508f}.ct-part{background:#f2ece6;color:#7a5a3a}
+.exm{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:12px 4px 6px;margin-top:4px;border-bottom:2px solid var(--accent-soft);color:var(--ink);font-size:14px}.exm:first-child{padding-top:2px;margin-top:0}.exm span{color:var(--muted);font-size:13px}
 </style>
 </head>
 <body>
@@ -909,9 +910,12 @@ async function readPendingTickets(){if(readingTickets)return;readingTickets=true
   await addExpense(cur);toast(`🤖 Ticket ${cur.fournisseur||''} lu : à vérifier dans Dépenses`);Sync.changed=true}}
  finally{readingTickets=false}}
 function expFiltered(){return S.expenses.filter(e=>(!F.expMonth||(e.date||'').startsWith(F.expMonth))&&(!F.expCat||e.categorie===F.expCat)).sort((a,b)=>(b.date||'').localeCompare(a.date||'')||(b.created||0)-(a.created||0))}
+// classement par mois du ticket (le plus récent en haut), avec le total pro du mois
+function expMonthHead(L,i){const m=(L[i].date||'').slice(0,7);if(i>0&&(L[i-1].date||'').slice(0,7)===m)return '';const G=L.filter(e=>(e.date||'').slice(0,7)===m);
+ const t=m?MOIS[+m.slice(5,7)-1]+' '+m.slice(0,4):'Sans date';return `<div class="exm"><b>${t.charAt(0).toUpperCase()+t.slice(1)}</b><span>${G.length} ticket${G.length>1?'s':''} · <b>${eur(sum(G,expPro))}</b></span></div>`}
 function expListHTML(){const L=expFiltered();if(!L.length)return empty('Aucune dépense.');
  const pv=sum(L,expPriv);
- return `<div class="row between" style="margin-bottom:6px"><span class="muted">${L.length} dépense(s)</span><span><b>Pro ${eur(sum(L,expPro))}</b>${pv?` <small class="muted">· privé ${eur(pv)}</small>`:''}</span></div><div class="list">${L.map(e=>`<div class="it" data-act="editExp" data-id="${e.id}">${e.file?(e.file.type.startsWith('image')?`<img class="thumb" src="${e.file.data}" alt="" data-act="viewFile" data-id="${e.id}">`:`<div class="thumb" data-act="viewFile" data-id="${e.id}">📄</div>`):'<div class="thumb">🧾</div>'}
+ return `<div class="row between" style="margin-bottom:6px"><span class="muted">${L.length} dépense(s)</span><span><b>Pro ${eur(sum(L,expPro))}</b>${pv?` <small class="muted">· privé ${eur(pv)}</small>`:''}</span></div><div class="list">${L.map((e,i)=>expMonthHead(L,i)+`<div class="it" data-act="editExp" data-id="${e.id}">${e.file?(e.file.type.startsWith('image')?`<img class="thumb" src="${e.file.data}" alt="" data-act="viewFile" data-id="${e.id}">`:`<div class="thumb" data-act="viewFile" data-id="${e.id}">📄</div>`):'<div class="thumb">🧾</div>'}
   <div class="grow"><div class="t">${esc(e.fournisseur||'Dépense')} ${e.aLire?'<span class="badge b-grey">⏳ à lire</span>':e.aVerifier?'<span class="badge b-orange">🤖 à vérifier</span>':''}</div><small class="muted">${fd(e.date)} · ${EXP_SHORT[e.categorie]||''}${(e.lines||[]).length?' · '+e.lines.length+' article(s)':''}${e.paiement?' · '+esc(e.paiement):''}${!e.file?' · <span style="color:var(--orange)">sans justificatif</span>':''}</small></div><div style="text-align:right"><div class="amount">${eur(expPro(e))}</div>${expPriv(e)?`<small class="muted">+ privé ${eur(expPriv(e))}</small>`:''}</div></div>`).join('')}</div>`}
 function vExp(){
  return `<div class="row between"><h2>Dépenses</h2><div class="row"><label class="btn" style="margin:0;color:var(--ink)">📥 Importer des tickets lus<input type="file" accept=".json,application/json" data-chg="importTickets" hidden></label><button class="pri" data-act="newExp">📷 Ajouter un ticket</button></div></div>
