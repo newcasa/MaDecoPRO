@@ -216,6 +216,7 @@ body.locked{padding-left:0!important}
  .inv{min-width:0;font-size:11.5pt}
  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
+.ctag{display:inline-block;vertical-align:middle;font-size:11px;font-weight:700;line-height:1;padding:3px 7px;border-radius:99px;white-space:nowrap}.ctag.big{font-size:13px;padding:5px 10px}.ct-pro{background:#e3ecf9;color:#24508f}.ct-part{background:#f2ece6;color:#7a5a3a}
 </style>
 </head>
 <body>
@@ -627,7 +628,7 @@ function docRows(kind){const q=norm(F.docQ);
 function docListHTML(kind){const L=docRows(kind);
  if(!L.length)return empty(kind==='devis'?'Aucun devis pour le moment.':'Aucune facture pour le moment.');
  return `<div class="list">${L.map(d=>`<div class="it" data-go="${issued(d)?'doc':'docEdit'}" data-p="${d.id}">
-  <div class="grow"><div class="t">${esc(dnum(d)||'Brouillon')} <small class="muted" style="font-weight:400">· ${esc(docLabel(d))}${kind==='devis'&&d.eventDate?' · événement '+fd(d.eventDate):''}</small></div><small class="muted">${esc(cname(d.clientId))}</small></div>
+  <div class="grow"><div class="t">${esc(dnum(d)||'Brouillon')} <small class="muted" style="font-weight:400">· ${esc(docLabel(d))}${kind==='devis'&&d.eventDate?' · événement '+fd(d.eventDate):''}</small></div><small class="muted">${esc(cname(d.clientId))}</small> ${cliTag(clientById(d.clientId))}</div>
   <div>${badge(docStatus(d))}</div></div>`).join('')}</div>`}
 const searchBox=ph=>`<input placeholder="🔍 ${ph}" data-inp="docQ" value="${esc(F.docQ)}" style="margin-bottom:12px">`;
 function vDevis(){F.docKind='devis';
@@ -700,7 +701,7 @@ function vDoc(){
  const pays=d.payments||[];
  return `<div class="row"><button class="sm" data-go="${docHome(d)}">← Retour</button></div>
  <div class="row between" style="margin-top:10px"><h2 style="margin:0">${docLabel(d)} ${esc(dnum(d))}</h2>${badge(st)}</div>
- <p class="muted" style="margin:4px 0 12px">${esc(cname(d.clientId))} · ${eur(T.total)}${d.sentDate?' · envoyé le '+fd(d.sentDate):''}</p>
+ <p class="muted" style="margin:4px 0 12px">${cliTag(clientById(d.clientId))} ${esc(cname(d.clientId))} · ${eur(T.total)}${d.sentDate?' · envoyé le '+fd(d.sentDate):''}</p>
  ${pendingNum(d)?'<div class="alert a-orange">⏳ <b>Numéro en attente.</b> Ce document a été émis sans connexion : son numéro définitif sera attribué automatiquement par le serveur dès que l\'appareil sera connecté à Internet (pour garantir une numérotation continue, sans doublon). Le PDF et l\'envoi par e-mail seront disponibles ensuite.</div>':''}
  <div class="row" style="margin-bottom:14px">${A.join('')}</div>
  ${d.type==='facture'?`<div class="card"><h3>Paiements reçus</h3>${pays.length?`<table class="t">${pays.map(p=>`<tr><td>${fd(p.date)}</td><td>${esc(p.mode||'')}</td><td class="r">${eur(p.amount)}</td><td class="r"><button class="sm link danger" data-act="delPayment" data-id="${d.id}" data-pid="${p.id}">supprimer</button></td></tr>`).join('')}</table>`:'<div class="muted">Aucun paiement enregistré.</div>'}
@@ -963,10 +964,14 @@ function vMat(){const SM=stockMap(),L=articles().filter(a=>catOf(a).type==='mate
  <div class="card">${L.length?`<div class="list">${L.map(a=>{const i=matInfo(a,SM),pc=Math.min(100,i.uses/i.N*100);return `<div class="it" data-act="editArticle" data-id="${a.id}">${a.photo?`<img class="thumb" src="${a.photo}" alt="">`:`<div class="thumb">${i.ok?'✅':'🧰'}</div>`}<div class="grow"><div class="t">${esc(a.name)}</div><small class="muted">Achat ${eur(a.cost)} · ${eur(i.share)} par événement</small><div class="gauge" style="height:8px;margin:5px 0 0"><div style="width:${pc}%;background:${i.ok?'var(--green)':'var(--gold)'}"></div></div></div><div style="text-align:right"><b>${i.uses}/${i.N}</b><br><small class="muted">${i.ok?'Rentabilisé':'reste '+eur(i.reste)}</small></div></div>`}).join('')}</div>`:empty('Aucun matériel. Classez vos structures, arches, supports… dans « Réutilisable ».')}</div>`}
 
 /* ================= CLIENTS ================= */
-function cliListHTML(){const q=norm(F.cliQ);const L=S.clients.filter(c=>!q||norm([c.prenom,c.nom,c.societe,c.tel,c.email,c.ville].join(' ')).includes(q)).sort((a,b)=>clientName(a).localeCompare(clientName(b)));
+// mention Particulier / Pro (pro = type « entreprise » ou n° de TVA renseigné)
+const isProC=c=>!!c&&(c.type==='entreprise'||!!String(c.tva||'').trim());
+const cliTag=(c,big)=>c?`<span class="ctag ${isProC(c)?'ct-pro':'ct-part'}${big?' big':''}">${isProC(c)?'🏢 Pro':'👤 Particulier'}</span>`:'';
+function cliListHTML(){const q=norm(F.cliQ);const L=S.clients.filter(c=>!q||norm([c.prenom,c.nom,c.societe,c.tel,c.email,c.ville].join(' ')).includes(q)).filter(c=>!F.cliK||(F.cliK==='pro')===isProC(c)).sort((a,b)=>clientName(a).localeCompare(clientName(b)));
  if(!L.length)return empty(S.clients.length?'Aucun résultat.':'Aucun client pour le moment.');
- return `<div class="list">${L.map(c=>`<div class="it" data-go="client" data-p="${c.id}"><div class="thumb">${c.type==='entreprise'?'🏢':'👤'}</div><div class="grow"><div class="t">${esc(clientName(c))}</div><small class="muted">${esc([c.tel,c.ville].filter(Boolean).join(' · '))}</small></div><small class="muted">${S.docs.filter(d=>d.clientId===c.id).length} doc.</small></div>`).join('')}</div>`}
+ return `<div class="list">${L.map(c=>`<div class="it" data-go="client" data-p="${c.id}"><div class="thumb">${isProC(c)?'🏢':'👤'}</div><div class="grow"><div class="t">${esc(clientName(c))} ${cliTag(c)}</div><small class="muted">${esc([c.tel,c.ville].filter(Boolean).join(' · '))}</small></div><small class="muted">${S.docs.filter(d=>d.clientId===c.id).length} doc.</small></div>`).join('')}</div>`}
 function vCli(){return `<div class="row between"><h2>Clients</h2><button class="pri" data-act="newClient">+ Nouveau client</button></div>
+ <div class="chips">${[['','Tous'],['part','👤 Particuliers'],['pro','🏢 Pros']].map(k=>`<button class="chip ${(F.cliK||'')===k[0]?'on':''}" data-act="cliFilter" data-f="${k[0]}">${k[1]}</button>`).join('')}</div>
  <input placeholder="🔍 Rechercher (nom, téléphone, ville…)" data-inp="cliQ" value="${esc(F.cliQ)}" style="margin-bottom:12px"><div class="card" id="cliList">${cliListHTML()}</div>`}
 const waNum=t=>{let d=String(t||'').replace(/[^\d+]/g,'');if(d.startsWith('+'))d=d.slice(1);else if(d.startsWith('00'))d=d.slice(2);else if(d.startsWith('0'))d='32'+d.slice(1);return d};
 function vClient(){
@@ -974,7 +979,7 @@ function vClient(){
  const docs=S.docs.filter(d=>d.clientId===c.id).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
  const inv=docs.filter(isLiveInvoice),fact=sum(inv,d=>docTotal(d).total),pd=sum(inv,paid);
  return `<div class="row"><button class="sm" data-go="cli">← Clients</button></div>
- <div class="row between" style="margin-top:10px"><h2 style="margin:0">${esc(clientName(c))}</h2><button class="sm" data-act="editClient" data-id="${c.id}">✏️ Modifier</button></div>
+ <div class="row between" style="margin-top:10px"><h2 style="margin:0">${esc(clientName(c))} ${cliTag(c,1)}</h2><button class="sm" data-act="editClient" data-id="${c.id}">✏️ Modifier</button></div>
  <div class="row" style="margin:12px 0">${c.tel?`<a class="btn" href="tel:${esc(c.tel)}">📞 Appeler</a><a class="btn" href="https://wa.me/${waNum(c.tel)}" target="_blank" rel="noopener">💬 WhatsApp</a>`:''}${c.email?`<a class="btn" href="mailto:${esc(c.email)}">✉️ E-mail</a>`:''}<button data-act="newDoc" data-t="devis" data-c="${c.id}">+ Devis</button><button class="pri" data-act="newDoc" data-t="facture" data-c="${c.id}">+ Facture</button></div>
  <div class="kpis"><div class="kpi"><div class="l">Total facturé</div><div class="v">${eur(fact)}</div></div><div class="kpi"><div class="l">Payé</div><div class="v">${eur(pd)}</div></div><div class="kpi"><div class="l">Reste dû</div><div class="v">${eur(fact-pd)}</div></div></div>
  <div class="card"><h3>Coordonnées</h3><table class="t">
@@ -1909,6 +1914,8 @@ ACT.peppolDl=d=>{const x=S.docs.find(z=>z.id===d.id);if(!x)return;const E=peppol
 {const _d=vDoc;vDoc=function(){let h=_d();const d=S.docs.find(z=>z.id===PARAM);if(!d||(d.type!=='facture'&&d.type!=='nc')||!d.number)return h;const c=clientById(d.clientId);if(!isProClient(c))return h;
  h=h.replace('<div class="row" style="margin-bottom:14px">',`<div class="row" style="margin-bottom:14px"><button class="pri" data-act="peppolDl" data-id="${d.id}">📤 Fichier Peppol</button>`);
  return h.replace('Encodez-la aussi dans votre solution Peppol.',`Touchez <b>📤 Fichier Peppol</b> puis importez le fichier dans votre outil Peppol (Cegid, Hermes…).${d.peppolAt?' <i>Fichier téléchargé le '+fd(d.peppolAt)+'.</i>':''}`)}}
+/* v13 : filtre Particuliers / Pros dans Clients */
+ACT.cliFilter=d=>{F.cliK=d.f;render()};
 /* ================= Démarrage ================= */
 async function loadLocal(){const st=await DB.all('settings');
  for(const s of ['clients','catalog','expenses','docs'])S[s]=await DB.all(s);

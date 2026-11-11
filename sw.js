@@ -1,7 +1,7 @@
 // Ma Déco Pro — fonctionnement hors ligne.
 // Avec du réseau : la dernière version en ligne est chargée (et gardée en mémoire).
 // Sans réseau (ou réseau trop lent) : la version gardée en mémoire est utilisée.
-const CACHE = 'ma-deco-pro-v8';
+const CACHE = 'ma-deco-pro-v9';
 const TIMEOUT = 3500;
 const FILES = ['./', './index.html', './config.js', './manifest.webmanifest',
   './icon-192.png', './icon-512.png', './icon-maskable-512.png', './apple-touch-icon.png'];
