@@ -1501,7 +1501,7 @@ const ACT={
   x.payments=x.payments||[];x.payments.push({id:uid(),amount:r2(num(f.amount)),date:f.date||todayISO(),mode:f.mode});await save('docs',x);closeModal();toast('Paiement enregistré');render()},
  delPayment:async d=>{if(!confirm('Supprimer ce paiement ?'))return;const x=S.docs.find(z=>z.id===d.id);x.payments=x.payments.filter(p=>p.id!==d.pid);x.delPays=[...(x.delPays||[]),d.pid];await save('docs',x);render()},
  cancelInvoice:async d=>{const x=S.docs.find(z=>z.id===d.id);if(!confirm('Annuler la facture '+x.number+' ?\nUne note de crédit du même montant sera créée et numérotée, et les articles seront remis en stock. Cette opération est définitive.'))return;
-  const t=todayISO(),nc={id:uid(),type:'nc',number:Sync.on?null:nextNumber('nc',t),issuePending:Sync.on||undefined,clientId:x.clientId,date:t,eventDate:x.eventDate,eventPlace:x.eventPlace,lines:x.lines.map(l=>({id:uid(),kind:'free',name:l.name,desc:l.desc,unit:l.unit,qty:l.qty,price:-num(l.price)})),remise:x.remise,notes:'Annulation de la facture n° '+x.number+'.',payments:[],refInvoice:x.id,created:Date.now(),issuedAt:Date.now()};
+  const t=todayISO(),nc={id:uid(),type:'nc',number:Sync.on?null:nextNumber('nc',t),issuePending:Sync.on||undefined,clientId:x.clientId,date:t,eventDate:x.eventDate,eventPlace:x.eventPlace,lines:x.lines.map(l=>({id:uid(),kind:'free',name:l.name,desc:l.desc,unit:l.unit,qty:l.qty,price:-num(l.price),...(l.deduct?{deduct:true}:{})})),remise:x.remise,notes:'Annulation de la facture n° '+x.number+'.',payments:[],refInvoice:x.id,created:Date.now(),issuedAt:Date.now()};
   x.creditId=nc.id;await save('docs',nc);await save('docs',x);if(Sync.on)await waitSync();const ncx=S.docs.find(z=>z.id===nc.id)||nc;
   toast(ncx.number?'Note de crédit '+ncx.number+' créée':'Note de crédit créée : numéro attribué dès le retour de la connexion');if(paid(x)>0)alert('Des paiements avaient été reçus sur cette facture : pensez à rembourser le client ou à reporter le montant sur une nouvelle facture.');go('doc',nc.id)},
  // ---- réglages et exports
@@ -1855,6 +1855,60 @@ CHG.acPhoto=async t=>{const file=t.files[0];t.value='';if(!file)return;
  catch(e){openModal(`<h2>Lecture impossible</h2><p>${esc(e.message)}</p><div class="row" style="justify-content:flex-end"><button data-act="closeModal">Fermer</button></div>`)}};
 {const st=document.createElement('style');st.textContent=`.pblk{display:grid;gap:8px;margin-top:10px}.pbtn{display:grid;grid-template-columns:34px 1fr;align-items:center;text-align:left;gap:0 8px;padding:12px;margin:0;min-height:0;border-radius:var(--radius);color:var(--ink)}.pbtn span{grid-row:1/3;font-size:24px}.pbtn small{font-weight:400}.pbtn:disabled{opacity:.55}
 @media print{.pnote{display:block}}`;document.head.appendChild(st)}
+/* ================= v12 : fichier Peppol (UBL, Peppol BIS Billing 3.0) pour les factures et notes de crédit aux entreprises ================= */
+const xe=v=>String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const a2=v=>(Math.round(num(v)*100)/100).toFixed(2);
+const bceDigits=v=>{const d=String(v||'').replace(/[^0-9]/g,'');return d.length===9?'0'+d:d};
+const isProClient=c=>!!c&&(c.type==='entreprise'||!!c.tva);
+function splitCpVille(t){const m=String(t||'').trim().match(/^(\d{4})\s*(.*)$/);return m?{cp:m[1],ville:m[2]}:{cp:'',ville:String(t||'').trim()}}
+function peppolCheck(d){const s=S.settings,c=clientById(d.clientId)||{},E=[];
+ if(!d.number)E.push('la facture doit être émise (avec son numéro)');
+ if(bceDigits(s.bce).length!==10)E.push('votre n° d’entreprise (BCE) dans Réglages');
+ if(!s.nom)E.push('le nom de votre entreprise dans Réglages');
+ if(bceDigits(c.tva).length!==10)E.push('le n° d’entreprise / TVA du client (fiche client)');
+ if(!(c.societe||clientName(c)))E.push('le nom du client');
+ return E}
+function peppolXML(d){const s=S.settings,c=clientById(d.clientId)||{},nc=d.type==='nc',T=docTotal(d),L=d.lines||[];
+ const sb=bceDigits(s.bce),cb=bceDigits(c.tva),sa=splitCpVille(s.cpVille);
+ const mention=s.mention||'Régime particulier de franchise des petites entreprises';
+ const sg=nc?-1:1; // une note de crédit est écrite en montants positifs
+ const reg=L.filter(l=>!l.deduct),ded=L.filter(l=>l.deduct);
+ const lines=reg.map((l,i)=>{let q=num(l.qty)||1,p=num(l.price)*sg;if(p<0){p=-p;q=-q}const amt=r2(q*p);return{i:i+1,q,p,amt,l}});
+ const lineExt=r2(sum(lines,x=>x.amt)),rem=r2(T.rem*sg),excl=r2(lineExt-rem),prepaid=r2(-sum(ded,lineTotal)*sg),pay=r2(excl-prepaid);
+ const party=(ep,name,adr,cp,ville,vat,legal)=>`<cac:Party><cbc:EndpointID schemeID="0208">${ep}</cbc:EndpointID><cac:PartyName><cbc:Name>${xe(name)}</cbc:Name></cac:PartyName>
+<cac:PostalAddress>${adr?`<cbc:StreetName>${xe(adr)}</cbc:StreetName>`:''}${ville?`<cbc:CityName>${xe(ville)}</cbc:CityName>`:''}${cp?`<cbc:PostalZone>${xe(cp)}</cbc:PostalZone>`:''}<cac:Country><cbc:IdentificationCode>BE</cbc:IdentificationCode></cac:Country></cac:PostalAddress>
+${vat?`<cac:PartyTaxScheme><cbc:CompanyID>BE${vat}</cbc:CompanyID><cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme></cac:PartyTaxScheme>`:''}<cac:PartyLegalEntity><cbc:RegistrationName>${xe(legal||name)}</cbc:RegistrationName><cbc:CompanyID schemeID="0208">${ep}</cbc:CompanyID></cac:PartyLegalEntity></cac:Party>`;
+ const cat=`<cbc:ID>E</cbc:ID><cbc:Percent>0</cbc:Percent>`;
+ const ref=nc?S.docs.find(x=>x.id===d.refInvoice):null,root=nc?'CreditNote':'Invoice',q=S.docs.find(x=>x.id===d.fromQuote);
+ const cname2=c.societe||clientName(c),comm=d.type==='facture'?'Facture '+d.number:d.number;
+ return `<?xml version="1.0" encoding="UTF-8"?>
+<${root} xmlns="urn:oasis:names:specification:ubl:schema:xsd:${root}-2" xmlns:cac="urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2" xmlns:cbc="urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2">
+<cbc:CustomizationID>urn:cen.eu:en16931:2017#compliant#urn:fdc:peppol.eu:2017:poacc:billing:3.0</cbc:CustomizationID>
+<cbc:ProfileID>urn:fdc:peppol.eu:2017:poacc:billing:01:1.0</cbc:ProfileID>
+<cbc:ID>${xe(d.number)}</cbc:ID>
+<cbc:IssueDate>${d.date}</cbc:IssueDate>
+${!nc&&d.dueDate?`<cbc:DueDate>${d.dueDate}</cbc:DueDate>`:''}<cbc:${nc?'CreditNoteTypeCode':'InvoiceTypeCode'}>${nc?381:380}</cbc:${nc?'CreditNoteTypeCode':'InvoiceTypeCode'}>
+<cbc:Note>${xe(mention)}${d.kind==='acompte'?' – Facture d’acompte':''}${d.eventDate?' – Événement du '+fd(d.eventDate)+(d.eventPlace?', '+d.eventPlace:''):''}</cbc:Note>
+<cbc:DocumentCurrencyCode>EUR</cbc:DocumentCurrencyCode>
+<cbc:BuyerReference>${xe(q&&q.number?q.number:d.number)}</cbc:BuyerReference>
+${ref&&ref.number?`<cac:BillingReference><cac:InvoiceDocumentReference><cbc:ID>${xe(ref.number)}</cbc:ID>${ref.date?`<cbc:IssueDate>${ref.date}</cbc:IssueDate>`:''}</cac:InvoiceDocumentReference></cac:BillingReference>`:''}
+<cac:AccountingSupplierParty>${party(sb,s.nom,s.adresse,sa.cp,sa.ville,sb,s.titulaire?s.nom:s.nom)}</cac:AccountingSupplierParty>
+<cac:AccountingCustomerParty>${party(cb,cname2,c.adresse,c.cp,c.ville,cb,cname2)}</cac:AccountingCustomerParty>
+${!nc&&s.iban?`<cac:PaymentMeans><cbc:PaymentMeansCode>58</cbc:PaymentMeansCode><cbc:PaymentID>${xe(comm)}</cbc:PaymentID><cac:PayeeFinancialAccount><cbc:ID>${xe(String(s.iban).replace(/\s+/g,''))}</cbc:ID>${s.titulaire||s.nom?`<cbc:Name>${xe(s.titulaire||s.nom)}</cbc:Name>`:''}</cac:PayeeFinancialAccount></cac:PaymentMeans>`:''}
+${rem?`<cac:AllowanceCharge><cbc:ChargeIndicator>false</cbc:ChargeIndicator><cbc:AllowanceChargeReason>Remise ${num(d.remise)} %</cbc:AllowanceChargeReason><cbc:Amount currencyID="EUR">${a2(rem)}</cbc:Amount><cac:TaxCategory>${cat}<cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme></cac:TaxCategory></cac:AllowanceCharge>`:''}
+<cac:TaxTotal><cbc:TaxAmount currencyID="EUR">0.00</cbc:TaxAmount><cac:TaxSubtotal><cbc:TaxableAmount currencyID="EUR">${a2(excl)}</cbc:TaxableAmount><cbc:TaxAmount currencyID="EUR">0.00</cbc:TaxAmount><cac:TaxCategory>${cat}<cbc:TaxExemptionReason>${xe(mention)}</cbc:TaxExemptionReason><cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme></cac:TaxCategory></cac:TaxSubtotal></cac:TaxTotal>
+<cac:LegalMonetaryTotal><cbc:LineExtensionAmount currencyID="EUR">${a2(lineExt)}</cbc:LineExtensionAmount><cbc:TaxExclusiveAmount currencyID="EUR">${a2(excl)}</cbc:TaxExclusiveAmount><cbc:TaxInclusiveAmount currencyID="EUR">${a2(excl)}</cbc:TaxInclusiveAmount>${rem?`<cbc:AllowanceTotalAmount currencyID="EUR">${a2(rem)}</cbc:AllowanceTotalAmount>`:''}${prepaid?`<cbc:PrepaidAmount currencyID="EUR">${a2(prepaid)}</cbc:PrepaidAmount>`:''}<cbc:PayableAmount currencyID="EUR">${a2(pay)}</cbc:PayableAmount></cac:LegalMonetaryTotal>
+${lines.map(x=>`<cac:${nc?'CreditNoteLine':'InvoiceLine'}><cbc:ID>${x.i}</cbc:ID><cbc:${nc?'CreditedQuantity':'InvoicedQuantity'} unitCode="C62">${+x.q.toFixed(3)}</cbc:${nc?'CreditedQuantity':'InvoicedQuantity'}><cbc:LineExtensionAmount currencyID="EUR">${a2(x.amt)}</cbc:LineExtensionAmount><cac:Item>${x.l.desc?`<cbc:Description>${xe(x.l.desc)}</cbc:Description>`:''}<cbc:Name>${xe(x.l.name||'Prestation')}</cbc:Name><cac:ClassifiedTaxCategory>${cat}<cac:TaxScheme><cbc:ID>VAT</cbc:ID></cac:TaxScheme></cac:ClassifiedTaxCategory></cac:Item><cac:Price><cbc:PriceAmount currencyID="EUR">${a2(x.p)}</cbc:PriceAmount></cac:Price></cac:${nc?'CreditNoteLine':'InvoiceLine'}>`).join('\n')}
+</${root}>`}
+ACT.peppolDl=d=>{const x=S.docs.find(z=>z.id===d.id);if(!x)return;const E=peppolCheck(x);
+ if(E.length)return openModal(`<h2>📤 Fichier Peppol</h2><p>Il manque encore :</p><ul>${E.map(e=>`<li>${e}</li>`).join('')}</ul><div class="row" style="justify-content:flex-end"><button data-act="closeModal">Fermer</button></div>`);
+ const xml=peppolXML(x),c=clientById(x.clientId)||{},u=URL.createObjectURL(new Blob([xml],{type:'application/xml'})),a=document.createElement('a');
+ a.href=u;a.download=`${x.type==='nc'?'Note de credit':'Facture'} ${x.number} ${c.societe||clientName(c)} - Peppol.xml`.replace(/[\\/:*?"<>|]+/g,'-');document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(u);a.remove()},4000);
+ if(!x.peppolAt){x.peppolAt=todayISO();save('docs',x)}
+ openModal(`<h2>📤 Fichier Peppol téléchargé</h2><p>Envoyez maintenant ce fichier à votre client par votre outil Peppol (Cegid, Hermes…) : choisissez <b>importer une facture UBL</b>, puis envoyez-la.</p><p class="muted"><small>Le fichier contient la facture au format européen Peppol BIS Billing 3.0, en franchise de TVA (mention « ${esc(S.settings.mention||'Régime particulier de franchise des petites entreprises')} »).</small></p><div class="row" style="justify-content:flex-end"><button class="pri" data-act="closeModal">OK</button></div>`)};
+{const _d=vDoc;vDoc=function(){let h=_d();const d=S.docs.find(z=>z.id===PARAM);if(!d||(d.type!=='facture'&&d.type!=='nc')||!d.number)return h;const c=clientById(d.clientId);if(!isProClient(c))return h;
+ h=h.replace('<div class="row" style="margin-bottom:14px">',`<div class="row" style="margin-bottom:14px"><button class="pri" data-act="peppolDl" data-id="${d.id}">📤 Fichier Peppol</button>`);
+ return h.replace('Encodez-la aussi dans votre solution Peppol.',`Touchez <b>📤 Fichier Peppol</b> puis importez le fichier dans votre outil Peppol (Cegid, Hermes…).${d.peppolAt?' <i>Fichier téléchargé le '+fd(d.peppolAt)+'.</i>':''}`)}}
 /* ================= Démarrage ================= */
 async function loadLocal(){const st=await DB.all('settings');
  for(const s of ['clients','catalog','expenses','docs'])S[s]=await DB.all(s);
